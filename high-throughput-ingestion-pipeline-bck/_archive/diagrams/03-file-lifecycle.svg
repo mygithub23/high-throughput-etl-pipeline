@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1100">
+  <defs>
+    <style>
+      .title { font: bold 24px sans-serif; fill: #1a1a1a; }
+      .subtitle { font: 16px sans-serif; fill: #666; }
+      .state-box { fill: #fff; stroke: #333; stroke-width: 3; }
+      .pending-state { fill: #fff9c4; stroke: #f57f17; stroke-width: 3; }
+      .processing-state { fill: #b3e5fc; stroke: #01579b; stroke-width: 3; }
+      .success-state { fill: #c8e6c9; stroke: #2e7d32; stroke-width: 3; }
+      .error-state { fill: #ffcdd2; stroke: #c62828; stroke-width: 3; }
+      .text { font: 14px sans-serif; fill: #333; text-anchor: middle; }
+      .state-text { font: bold 16px sans-serif; fill: #333; text-anchor: middle; }
+      .small-text { font: 11px sans-serif; fill: #666; }
+      .metric-text { font: 10px monospace; fill: #999; }
+      .arrow { stroke: #333; stroke-width: 3; fill: none; marker-end: url(#arrowhead); }
+      .error-arrow { stroke: #c62828; stroke-width: 2; stroke-dasharray: 5,5; fill: none; marker-end: url(#error-arrowhead); }
+      .timeline-line { stroke: #999; stroke-width: 2; stroke-dasharray: 10,5; }
+      .timeline-text { font: 12px sans-serif; fill: #666; }
+    </style>
+    <marker id="arrowhead" markerWidth="12" markerHeight="12" refX="10" refY="3" orient="auto">
+      <polygon points="0 0, 12 3, 0 6" fill="#333" />
+    </marker>
+    <marker id="error-arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#c62828" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="700" y="30" class="title" text-anchor="middle">File Lifecycle Diagram</text>
+  <text x="700" y="55" class="subtitle" text-anchor="middle">From Upload to Completion - All States and Transitions</text>
+
+  <!-- Timeline -->
+  <line x1="100" y1="100" x2="1300" y2="100" class="timeline-line"/>
+  <text x="100" y="90" class="timeline-text">t=0</text>
+  <text x="400" y="90" class="timeline-text">t=1min</text>
+  <text x="700" y="90" class="timeline-text">t=5min</text>
+  <text x="1000" y="90" class="timeline-text">t=10min</text>
+  <text x="1300" y="90" class="timeline-text">t=15min</text>
+
+  <!-- STATE 1: Upload -->
+  <rect x="50" y="140" width="250" height="140" class="state-box" rx="10"/>
+  <text x="175" y="170" class="state-text">STATE 1: UPLOADED</text>
+  <text x="175" y="195" class="small-text">File lands in S3 input bucket</text>
+
+  <text x="60" y="220" class="metric-text" text-anchor="start">Location: s3://input/file.ndjson</text>
+  <text x="60" y="235" class="metric-text" text-anchor="start">Size: 3.5-4.5 GB</text>
+  <text x="60" y="250" class="metric-text" text-anchor="start">Status: Not tracked yet</text>
+  <text x="60" y="265" class="metric-text" text-anchor="start">Duration: Instant</text>
+
+  <!-- Arrow to Event -->
+  <path d="M 300 210 L 370 210" class="arrow"/>
+  <text x="335" y="205" class="small-text">S3 Event</text>
+  <text x="335" y="220" class="small-text">&lt;1 sec</text>
+
+  <!-- STATE 2: Event Queued -->
+  <rect x="370" y="140" width="250" height="140" class="pending-state" rx="10"/>
+  <text x="495" y="170" class="state-text">STATE 2: QUEUED</text>
+  <text x="495" y="195" class="small-text">Event in SQS queue</text>
+
+  <text x="380" y="220" class="metric-text" text-anchor="start">Location: SQS file-events</text>
+  <text x="380" y="235" class="metric-text" text-anchor="start">Payload: Bucket, Key, Size</text>
+  <text x="380" y="250" class="metric-text" text-anchor="start">Visibility: 300 seconds</text>
+  <text x="380" y="265" class="metric-text" text-anchor="start">Wait: Up to 1 minute</text>
+
+  <!-- Arrow to Validation -->
+  <path d="M 620 210 L 690 210" class="arrow"/>
+  <text x="655" y="205" class="small-text">Lambda</text>
+  <text x="655" y="220" class="small-text">Poll</text>
+
+  <!-- STATE 3: Validation -->
+  <rect x="690" y="140" width="250" height="140" class="processing-state" rx="10"/>
+  <text x="815" y="170" class="state-text">STATE 3: VALIDATING</text>
+  <text x="815" y="195" class="small-text">Size check & DynamoDB insert</text>
+
+  <text x="700" y="220" class="metric-text" text-anchor="start">Size check: 2.8-4.2 GB OK?</text>
+  <text x="700" y="235" class="metric-text" text-anchor="start">DynamoDB: Insert record</text>
+  <text x="700" y="250" class="metric-text" text-anchor="start">Status: pending</text>
+  <text x="700" y="265" class="metric-text" text-anchor="start">Duration: &lt;1 second</text>
+
+  <!-- Success path to Pending -->
+  <path d="M 940 210 L 1010 210" class="arrow"/>
+  <text x="975" y="205" class="small-text">Valid</text>
+
+  <!-- Error path to Quarantine -->
+  <path d="M 815 280 L 815 350 L 1150 350" class="error-arrow"/>
+  <text x="950" y="345" class="small-text">Invalid size → Quarantine</text>
+
+  <!-- STATE 4: Pending -->
+  <rect x="1010" y="140" width="250" height="140" class="pending-state" rx="10"/>
+  <text x="1135" y="170" class="state-text">STATE 4: PENDING</text>
+  <text x="1135" y="195" class="small-text">Waiting for batch to fill</text>
+
+  <text x="1020" y="220" class="metric-text" text-anchor="start">DynamoDB status: pending</text>
+  <text x="1020" y="235" class="metric-text" text-anchor="start">Batch: Waiting for 100 files</text>
+  <text x="1020" y="250" class="metric-text" text-anchor="start">Count: Incremental</text>
+  <text x="1020" y="265" class="metric-text" text-anchor="start">Wait: 1-10 minutes</text>
+
+  <!-- Arrow to Manifested -->
+  <path d="M 1135 280 L 1135 360" class="arrow"/>
+  <text x="1145" y="320" class="small-text">100 files</text>
+  <text x="1145" y="335" class="small-text">ready</text>
+
+  <!-- STATE 5: Manifested -->
+  <rect x="1010" y="360" width="250" height="140" class="processing-state" rx="10"/>
+  <text x="1135" y="390" class="state-text">STATE 5: MANIFESTED</text>
+  <text x="1135" y="415" class="small-text">Included in manifest JSON</text>
+
+  <text x="1020" y="440" class="metric-text" text-anchor="start">DynamoDB status: manifested</text>
+  <text x="1020" y="455" class="metric-text" text-anchor="start">Manifest: s3://manifests/...json</text>
+  <text x="1020" y="470" class="metric-text" text-anchor="start">Batch ID: uuid</text>
+  <text x="1020" y="485" class="metric-text" text-anchor="start">Duration: &lt;1 second</text>
+
+  <!-- Arrow to Processing -->
+  <path d="M 1010 430 L 700 430" class="arrow"/>
+  <text x="855" y="425" class="small-text">Glue job triggered</text>
+
+  <!-- STATE 6: Processing -->
+  <rect x="450" y="360" width="250" height="140" class="processing-state" rx="10"/>
+  <text x="575" y="390" class="state-text">STATE 6: PROCESSING</text>
+  <text x="575" y="415" class="small-text">Glue job running</text>
+
+  <text x="460" y="440" class="metric-text" text-anchor="start">Glue job: RUNNING</text>
+  <text x="460" y="455" class="metric-text" text-anchor="start">Workers: 20 × G.2X</text>
+  <text x="460" y="470" class="metric-text" text-anchor="start">Operations: Read, Parse, Write</text>
+  <text x="460" y="485" class="metric-text" text-anchor="start">Duration: 7-10 minutes</text>
+
+  <!-- Success path to Completed -->
+  <path d="M 575 500 L 575 570" class="arrow"/>
+  <text x="585" y="535" class="small-text">Success</text>
+
+  <!-- Error path to Failed -->
+  <path d="M 450 430 L 320 430" class="error-arrow"/>
+  <text x="385" y="425" class="small-text">Error</text>
+
+  <!-- STATE 7: Completed (Success) -->
+  <rect x="450" y="570" width="250" height="140" class="success-state" rx="10"/>
+  <text x="575" y="600" class="state-text">STATE 7: COMPLETED</text>
+  <text x="575" y="625" class="small-text">✓ Parquet written successfully</text>
+
+  <text x="460" y="650" class="metric-text" text-anchor="start">DynamoDB status: completed</text>
+  <text x="460" y="665" class="metric-text" text-anchor="start">Output: s3://output/parquet/...</text>
+  <text x="460" y="680" class="metric-text" text-anchor="start">Compression: 5-7x</text>
+  <text x="460" y="695" class="metric-text" text-anchor="start">End-to-end time: 8-15 min</text>
+
+  <!-- STATE 8: Failed (Error) -->
+  <rect x="70" y="360" width="250" height="140" class="error-state" rx="10"/>
+  <text x="195" y="390" class="state-text">STATE 8: FAILED</text>
+  <text x="195" y="415" class="small-text">✗ Processing error</text>
+
+  <text x="80" y="440" class="metric-text" text-anchor="start">DynamoDB status: failed</text>
+  <text x="80" y="455" class="metric-text" text-anchor="start">Error: Logged in CloudWatch</text>
+  <text x="80" y="470" class="metric-text" text-anchor="start">Action: Alert + Manual retry</text>
+  <text x="80" y="485" class="metric-text" text-anchor="start">Examples: OOM, Timeout</text>
+
+  <!-- Retry path -->
+  <path d="M 195 360 L 195 320 L 370 320 L 370 430 L 450 430" class="arrow"/>
+  <text x="280" y="315" class="small-text">Manual retry</text>
+
+  <!-- STATE 9: Quarantined (Invalid) -->
+  <rect x="1030" y="570" width="250" height="140" class="error-state" rx="10"/>
+  <text x="1155" y="600" class="state-text">STATE 9: QUARANTINED</text>
+  <text x="1155" y="625" class="small-text">✗ Invalid file size</text>
+
+  <text x="1040" y="650" class="metric-text" text-anchor="start">Location: s3://quarantine/...</text>
+  <text x="1040" y="665" class="metric-text" text-anchor="start">Reason: Too large or too small</text>
+  <text x="1040" y="680" class="metric-text" text-anchor="start">Action: Manual investigation</text>
+  <text x="1040" y="695" class="metric-text" text-anchor="start">Duration: Immediate</text>
+
+  <path d="M 1155 360 L 1155 570" class="error-arrow"/>
+
+  <!-- State Transition Table -->
+  <rect x="50" y="770" width="650" height="300" class="state-box" rx="10" style="fill: #fafafa;"/>
+  <text x="375" y="800" class="state-text">State Transition Table</text>
+
+  <text x="60" y="830" class="small-text" text-anchor="start" style="font-weight: bold;">From State</text>
+  <text x="200" y="830" class="small-text" text-anchor="start" style="font-weight: bold;">To State</text>
+  <text x="340" y="830" class="small-text" text-anchor="start" style="font-weight: bold;">Trigger</text>
+  <text x="500" y="830" class="small-text" text-anchor="start" style="font-weight: bold;">Duration</text>
+  <line x1="60" y1="835" x2="690" y2="835" stroke="#ccc" stroke-width="1"/>
+
+  <text x="60" y="855" class="metric-text" text-anchor="start">UPLOADED</text>
+  <text x="200" y="855" class="metric-text" text-anchor="start">QUEUED</text>
+  <text x="340" y="855" class="metric-text" text-anchor="start">S3 Event Notification</text>
+  <text x="500" y="855" class="metric-text" text-anchor="start">&lt;1 second</text>
+
+  <text x="60" y="875" class="metric-text" text-anchor="start">QUEUED</text>
+  <text x="200" y="875" class="metric-text" text-anchor="start">VALIDATING</text>
+  <text x="340" y="875" class="metric-text" text-anchor="start">Lambda polls SQS</text>
+  <text x="500" y="875" class="metric-text" text-anchor="start">0-60 seconds</text>
+
+  <text x="60" y="895" class="metric-text" text-anchor="start">VALIDATING</text>
+  <text x="200" y="895" class="metric-text" text-anchor="start">PENDING</text>
+  <text x="340" y="895" class="metric-text" text-anchor="start">Size valid + DB insert</text>
+  <text x="500" y="895" class="metric-text" text-anchor="start">&lt;1 second</text>
+
+  <text x="60" y="915" class="metric-text" text-anchor="start">VALIDATING</text>
+  <text x="200" y="915" class="metric-text" text-anchor="start">QUARANTINED</text>
+  <text x="340" y="915" class="metric-text" text-anchor="start">Size invalid</text>
+  <text x="500" y="915" class="metric-text" text-anchor="start">&lt;1 second</text>
+
+  <text x="60" y="935" class="metric-text" text-anchor="start">PENDING</text>
+  <text x="200" y="935" class="metric-text" text-anchor="start">MANIFESTED</text>
+  <text x="340" y="935" class="metric-text" text-anchor="start">100 files accumulated</text>
+  <text x="500" y="935" class="metric-text" text-anchor="start">1-10 minutes</text>
+
+  <text x="60" y="955" class="metric-text" text-anchor="start">MANIFESTED</text>
+  <text x="200" y="955" class="metric-text" text-anchor="start">PROCESSING</text>
+  <text x="340" y="955" class="metric-text" text-anchor="start">Glue job starts</text>
+  <text x="500" y="955" class="metric-text" text-anchor="start">&lt;1 minute</text>
+
+  <text x="60" y="975" class="metric-text" text-anchor="start">PROCESSING</text>
+  <text x="200" y="975" class="metric-text" text-anchor="start">COMPLETED</text>
+  <text x="340" y="975" class="metric-text" text-anchor="start">Job succeeds</text>
+  <text x="500" y="975" class="metric-text" text-anchor="start">7-10 minutes</text>
+
+  <text x="60" y="995" class="metric-text" text-anchor="start">PROCESSING</text>
+  <text x="200" y="995" class="metric-text" text-anchor="start">FAILED</text>
+  <text x="340" y="995" class="metric-text" text-anchor="start">Job fails (OOM, timeout)</text>
+  <text x="500" y="995" class="metric-text" text-anchor="start">Varies</text>
+
+  <text x="60" y="1015" class="metric-text" text-anchor="start">FAILED</text>
+  <text x="200" y="1015" class="metric-text" text-anchor="start">PROCESSING</text>
+  <text x="340" y="1015" class="metric-text" text-anchor="start">Manual retry</text>
+  <text x="500" y="1015" class="metric-text" text-anchor="start">On demand</text>
+
+  <!-- DynamoDB Status Values -->
+  <rect x="750" y="770" width="600" height="300" class="state-box" rx="10" style="fill: #fafafa;"/>
+  <text x="1050" y="800" class="state-text">DynamoDB Status Field Values</text>
+
+  <text x="760" y="830" class="small-text" text-anchor="start" style="font-weight: bold;">Status Value</text>
+  <text x="900" y="830" class="small-text" text-anchor="start" style="font-weight: bold;">Meaning</text>
+  <text x="1100" y="830" class="small-text" text-anchor="start" style="font-weight: bold;">Queryable</text>
+  <line x1="760" y1="835" x2="1340" y2="835" stroke="#ccc" stroke-width="1"/>
+
+  <text x="760" y="855" class="metric-text" text-anchor="start">null</text>
+  <text x="900" y="855" class="metric-text" text-anchor="start">Not tracked yet (pre-validation)</text>
+  <text x="1100" y="855" class="metric-text" text-anchor="start">No</text>
+
+  <text x="760" y="875" class="metric-text" text-anchor="start">pending</text>
+  <text x="900" y="875" class="metric-text" text-anchor="start">Valid, waiting for batch</text>
+  <text x="1100" y="875" class="metric-text" text-anchor="start">Yes (GSI)</text>
+
+  <text x="760" y="895" class="metric-text" text-anchor="start">manifested</text>
+  <text x="900" y="895" class="metric-text" text-anchor="start">In manifest, queued for Glue</text>
+  <text x="1100" y="895" class="metric-text" text-anchor="start">Yes</text>
+
+  <text x="760" y="915" class="metric-text" text-anchor="start">processing</text>
+  <text x="900" y="915" class="metric-text" text-anchor="start">Glue job running (optional)</text>
+  <text x="1100" y="915" class="metric-text" text-anchor="start">Yes</text>
+
+  <text x="760" y="935" class="metric-text" text-anchor="start">completed</text>
+  <text x="900" y="935" class="metric-text" text-anchor="start">Successfully converted to Parquet</text>
+  <text x="1100" y="935" class="metric-text" text-anchor="start">Yes</text>
+
+  <text x="760" y="955" class="metric-text" text-anchor="start">failed</text>
+  <text x="900" y="955" class="metric-text" text-anchor="start">Glue job failed</text>
+  <text x="1100" y="955" class="metric-text" text-anchor="start">Yes</text>
+
+  <text x="760" y="975" class="metric-text" text-anchor="start">quarantined</text>
+  <text x="900" y="975" class="metric-text" text-anchor="start">Invalid size, moved to quarantine</text>
+  <text x="1100" y="975" class="metric-text" text-anchor="start">Yes</text>
+
+  <text x="760" y="1010" class="small-text" text-anchor="start" style="font-weight: bold;">Queries:</text>
+  <text x="760" y="1030" class="metric-text" text-anchor="start">• Find pending: Query GSI status-index WHERE status = 'pending'</text>
+  <text x="760" y="1045" class="metric-text" text-anchor="start">• Count daily: Query PK = '2025-12-24' (all statuses)</text>
+  <text x="760" y="1060" class="metric-text" text-anchor="start">• Failed files: Query PK = '2025-12-24' WHERE status = 'failed'</text>
+
+</svg>

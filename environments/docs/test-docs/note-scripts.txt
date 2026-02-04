@@ -1,0 +1,669 @@
+# Delete old manifests
+aws s3 rm s3://ndjson-manifest-sqs-<ACCOUNT>-dev/manifests/ --recursive
+
+# Delete DynamoDB tracking entries for old dates
+aws dynamodb delete-item --table-name ndjson-parquet-sqs-file-tracking-dev \
+  --key '{"date_prefix": {"S": "2025-12-25"}, "file_key": {"S": "MANIFEST"}}'
+
+
+aws dynamodb execute-statement \
+  --statement "SELECT date_prefix, COUNT(*) FROM \"ndjson-parquet-sqs-file-tracking-dev\" WHERE status='pending' GROUP BY date_prefix" \
+  --region us-east-1
+
+
+aws dynamodb execute-statement \
+  --statement "SELECT date_prefix, status FROM \"ndjson-parquet-sqs-file-tracking-dev\" WHERE file_key='MANIFEST'" \
+  --region us-east-1
+
+
+aws logs filter-log-events \
+  --log-group-name "/aws/lambda/ndjson-manifest-builder-dev" \
+  --filter-pattern "ERROR" \
+  --start-time $(date -d '1 hour ago' +%s000) \
+  --region us-east-1
+
+
+# Deploy dev Lambda
+cd environments/dev/lambda
+
+zip -r ndjson-parquet-manifest-builder.zip lambda_manifest_builder.py
+
+aws s3 cp ndjson-parquet-manifest-builder.zip s3://ndjson-glue-scripts-<ACCOUNT>-dev/lambda/dev/
+
+
+aws lambda update-function-code \
+  --function-name ndjson-parquet-sqs-manifest-builder \
+  --zip-file fileb://lambda.zip \
+  --region us-east-1
+
+# Deploy dev Glue job
+cd environments/dev/glue
+aws s3 cp glue_batch_job.py s3://ndjson-glue-scripts-<ACCOUNT>-dev/glue/dev/
+
+aws s3 ls s3://ndjson-manifest-sqs-<ACCOUNT>-dev/manifests/ --recursive | tail -1
+# Copy the path, then:
+aws s3 cp s3://ndjson-manifest-sqs-<ACCOUNT>-dev/manifests/manifests/2026-01-29/batch-0003-20260129-174429.json - | jq .
+
+# Check the specific output path
+aws s3 ls s3://ndjson-output-sqs-<ACCOUNT>-dev/merged-parquet-2026-01-29/ --recursive --human-readable
+
+# Or list everything in the output bucket
+aws s3 ls s3://ndjson-output-sqs-<ACCOUNT>-dev/ --recursive --human-readable | grep parquet
+
+
+aws glue get-job-run --job-name ndjson-parquet-batch-job-dev --run-id jr_227e7e856148b11f13787e8b4ce489960da26bbaaf4bd1c63905c4c7388a9dcc --region us-east-1 | grep OUTPUT_BUCKET
+
+ndjson-parquet-batch-job-
+ndjson-parquet-batch-job-dev
+djson-parquet-batch-processor-dev
+
+aws stepfunctions list-executions \
+  --state-machine-arn "arn:aws:states:us-east-1:<ACCOUNT>:stateMachine:ndjson-parquet-processor-dev" \
+  --status-filter RUNNING \
+  --max-results 50
+
+76 files stuck in "pending" (waiting for manifests)
+40 files "manifested" (waiting for Glue)
+1 LOCK record blocking new manifest creation
+Recovery Steps
+1. Check the Lock Status
+
+cd environments/dev/scripts
+bash check-locks.sh
+This will show whether the LOCK is expired and how long it's been stuck.
+
+2. Clear Expired Locks
+If the lock is expired (which it likely is after 5+ minutes):
+
+
+bash check-locks.sh --clear-expired
+This safely removes only expired locks without affecting active ones.
+
+3. Force Manifest Creation
+After clearing the lock, trigger Lambda to process the 76 pending files:
+
+
+bash force-manifest-creation.sh
+This invokes Lambda with a test event, which will:
+
+Trigger the orphan flush mechanism
+Process all pending files from all dates
+Create manifests for any date with ≥10 pending files
+4. Monitor Progress
+
+bash trace-pipeline.sh
+Watch for:
+
+Pending count decreasing
+New manifests being created
+Step Functions executions starting
+Parquet files appearing in output bucket
+Important: Understanding the Record Statuses
+Individual NDJSON file records: pending → manifested (stays manifested forever)
+
+These never update to "completed"
+Seeing 2,233 "manifested" is normal
+MANIFEST meta-records: pending → processing → completed/failed
+
+Track batch processing through Glue
+Should match number of manifest files
+Should match number of Parquet outputs (if successful)
+So if you have 130 input files:
+
+✓ 130 files "manifested" = Normal
+✓ 13 MANIFEST records "completed" = All processed
+✗ 1 MANIFEST record "completed" + 11 manifested = Only 1 batch finished
+What I Created
+check-locks.sh - Diagnose and clear stuck locks
+force-manifest-creation.sh - Manually trigger Lambda
+README-LOCK-RECOVERY.md - Complete recovery guide
+All scripts include colored output and clear diagnostics to help you understand what's happening.
+
+Next Steps After Recovery
+Once the pipeline is running again, you may also want to investigate why only 1 MANIFEST record shows "completed" when 11+ manifests were created. This could indicate Step Functions update failures, which you can check with:
+
+
+bash trace-pipeline.sh
+Look at the "Step Functions Executions" section for any FAILED statuses.
+
+Note: Your AWS credentials appear to be expired, so refresh them before running these scripts.
+
+1. DynamoDB Status Summary
+Total records: 137
+  completed: 1
+  manifested: 110
+  pending: 26
+
+1. DynamoDB Status Summary
+Total records: 158
+  completed: 1
+  manifested: 130
+  pending: 26
+  unknown: 1  
+
+  ---------------
+
+   Findings
+1. Good News - No LOCK Issue
+✓ No LOCK records found - the pipeline is healthy in that regard
+✓ 15 manifests created for 2026-01-29
+✓ 15 parquet files created (perfect match!)
+✓ 43 Step Functions executions SUCCEEDED
+
+2. Problem #1: 26 Pending Files Not Processing
+Even though there's no LOCK, you have 26 pending files (≥10 threshold). This suggests they might be distributed across multiple dates with each date having <10 files.
+
+Check this:
+
+
+aws dynamodb query \
+  --table-name ndjson-parquet-sqs-file-tracking-dev \
+  --index-name status-index \
+  --key-condition-expression "#status = :status" \
+  --expression-attribute-names '{"#status":"status"}' \
+  --expression-attribute-values '{":status":{"S":"pending"}}' \
+  --projection-expression date_prefix \
+  --region us-east-1 | python3 -c "
+import sys, json
+from collections import Counter
+
+data = json.load(sys.stdin)
+items = data.get('Items', [])
+dates = [item.get('date_prefix', {}).get('S', 'unknown') for item in items]
+counts = Counter(dates)
+
+print('Pending files by date:')
+for date, count in sorted(counts.items()):
+    print(f'  {date}: {count} files')
+    if count >= 10:
+        print(f'    ⚠️  This should have created a manifest!')
+"
+3. CRITICAL Problem #2: Step Functions Not Updating MANIFEST Records
+This is the major issue:
+
+43 Step Functions SUCCEEDED
+Only 1 MANIFEST record shows "completed"
+Should be: 43 (or close to it)
+This means the UpdateStatusCompleted step in Step Functions is failing to update DynamoDB!
+
+Let's check a successful execution to see what's happening:
+
+
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+STATE_MACHINE_ARN="arn:aws:states:us-east-1:${AWS_ACCOUNT_ID}:stateMachine:ndjson-parquet-processor-dev"
+
+# Get the most recent successful execution
+EXEC_ARN=$(aws stepfunctions list-executions \
+  --state-machine-arn "$STATE_MACHINE_ARN" \
+  --status-filter SUCCEEDED \
+  --max-results 1 \
+  --region us-east-1 \
+  --query 'executions[0].executionArn' \
+  --output text)
+
+echo "Checking execution: $EXEC_ARN"
+echo ""
+
+# Get execution history
+aws stepfunctions get-execution-history \
+  --execution-arn "$EXEC_ARN" \
+  --region us-east-1 \
+  --output json | python3 -c "
+import sys, json
+
+data = json.load(sys.stdin)
+events = data.get('events', [])
+
+print('Execution Timeline:')
+print('='*60)
+
+for event in events:
+    event_type = event.get('type', '')
+    timestamp = event.get('timestamp', '')
+    
+    # Look for UpdateStatusCompleted step
+    if 'UpdateStatusCompleted' in str(event):
+        print(f'{timestamp} - {event_type}')
+        print(f'  Event: {json.dumps(event, indent=2, default=str)}')
+        print()
+    
+    # Look for DynamoDB update errors
+    if 'Failed' in event_type or 'Error' in event_type:
+        print(f'{timestamp} - {event_type}')
+        print(f'  Event: {json.dumps(event, indent=2, default=str)}')
+        print()
+"
+4. What's the "unknown: 1" Record?
+Let's identify it:
+
+
+aws dynamodb scan \
+  --table-name ndjson-parquet-sqs-file-tracking-dev \
+  --filter-expression "attribute_not_exists(#status)" \
+  --expression-attribute-names '{"#status":"status"}' \
+  --region us-east-1 \
+  --output json | python3 -c "
+import sys, json
+
+data = json.load(sys.stdin)
+items = data.get('Items', [])
+
+print(f'Found {len(items)} record(s) without status attribute:')
+for item in items:
+    print(json.dumps(item, indent=2, default=str))
+"
+My Hypothesis
+I suspect the issue with UpdateStatusCompleted is in the Step Functions state machine definition. The DynamoDB update might be failing because:
+
+Wrong key format - The input might not have the correct date_prefix and file_key structure
+Missing fields - The $.glue_result.Id path might not exist
+Permission issue - Step Functions role might not have write permissions (unlikely since it can update to "processing")
+Run the execution history check above, and we'll see exactly where Step Functions is failing to update the MANIFEST records to "completed".
+
+# Upload a test file to trigger Lambda
+aws s3 cp environments/dev/test-data/sample.ndjson s3://ndjson-input-sqs-<ACCOUNT>-dev/2026-01-29/
+
+
+/aws/lambda/ndjson-parquet-manifest-builder-dev
+/aws/lambda/ndjson-parquet-manifest-builder-dev
+
+aws logs tail //aws/lambda/ndjson-parquet-manifest-builder-dev --follow --region us-east-1
+
+
+
+echo "Checking DynamoDB for pending files..."
+
+PENDING_COUNT=$(aws dynamodb query \
+  --table-name "ndjson-parquet-sqs-file-tracking-dev" \
+  --index-name "status-index" \
+  --key-condition-expression "#status = :status" \
+  --expression-attribute-names '{"#status":"status"}' \
+  --expression-attribute-values '{":status":{"S":"pending"}}' \
+  --select "COUNT" \
+  --region us-east-1 \
+  --output json | python3 -c "import sys, json; print(json.load(sys.stdin).get('Count', 0))")
+
+
+aws dynamodb query \
+  --table-name "ndjson-parquet-sqs-file-tracking-dev" \
+  --index-name "status-index" \
+  --key-condition-expression "#status = :status" \
+  --expression-attribute-names '{"#status":"status"}' \
+  --expression-attribute-values '{":status":{"S":"pending"}}' \
+  --select "COUNT" \
+  --region us-east-1 \
+  --output json | python3 -c "import sys, json; print(json.load(sys.stdin).get('Count', 0))"
+  --output json | python3 -c "import sys, json; print(json.load(sys.stdin).get('Count', 0))"
+
+
+  2026-01-29-test0004-230626-2389e7ca-fd67-11f0-bf38-6d30406400f5.ndjson
+  2026-01-29-test0007-230627-23dcbab4-fd67-11f0-9602-6d30406400f5.ndjson
+  2026-01-29-test0009-230627-2412ec59-fd67-11f0-80bc-6d30406400f5.ndjson
+
+  cd environments/dev/scripts
+
+# Download the current Lambda code from AWS
+aws lambda get-function --function-name ndjson-parquet-manifest-builder-dev --region us-east-1 --query 'Code.Location' --output text | xargs curl -o lambda-code.zip
+
+# Extract and check the code
+cd /tmp
+unzip -o lambda-code.zip
+grep -A 10 "CRITICAL: Create MANIFEST" lambda_manifest_builder.py
+
+cd ~/OneDrive/Documents/_Dev/claude/claude-ndjson-parquet-proj-v5/high-throughputh-ingestion-pipeline/environments/dev/scripts
+bash deploy-lambda.sh
+
+{
+    "Configuration": {
+        "FunctionName": "ndjson-parquet-manifest-builder-dev",
+        "FunctionArn": "arn:aws:lambda:us-east-1:<ACCOUNT>:function:ndjson-parquet-manifest-builder-dev",
+        "Runtime": "python3.11",
+        "Role": "arn:aws:iam::<ACCOUNT>:role/ndjson-parquet-lambda-role-dev",
+        "Handler": "lambda_manifest_builder.lambda_handler",
+        "CodeSize": 8677,
+        "Description": "Builds manifests from incoming NDJSON files for batch processing",
+        "Timeout": 180,
+        "MemorySize": 512,
+        "LastModified": "2026-01-29T20:52:44.000+0000",
+        "CodeSha256": "NFeJrYLosi7kMXS+0AHnZkElN9Ve5egzD0GckGiBfxE=",
+        "Version": "$LATEST",
+        "Environment": {
+            "Variables": {
+                "MANIFEST_PREFIX": "pipeline/manifests",
+                "ENVIRONMENT": "dev",
+                "EXPECTED_FILE_SIZE_MB": "10",
+                "OUTPUT_BUCKET": "ndjson-output-sqs-<ACCOUNT>-dev",
+                "TRACKING_TABLE": "ndjson-parquet-sqs-file-tracking-dev",
+                "OUTPUT_PREFIX": "pipeline/output",
+                "QUARANTINE_BUCKET": "ndjson-quarantine-sqs-<ACCOUNT>-dev",
+                "MAX_FILES_PER_MANIFEST": "10",
+                "QUARANTINE_PREFIX": "pipeline/quarantine",
+                "TTL_DAYS": "30",
+                "STEP_FUNCTION_ARN": "arn:aws:states:us-east-1:<ACCOUNT>:stateMachine:ndjson-parquet-processor-dev",
+                "INPUT_PREFIX": "pipeline/input",
+                "INPUT_BUCKET": "ndjson-input-sqs-<ACCOUNT>-dev",
+                "MANIFEST_BUCKET": "ndjson-manifest-sqs-<ACCOUNT>-dev",
+                "SIZE_TOLERANCE_PERCENT": "99",
+                "METRICS_TABLE": "ndjson-parquet-sqs-metrics-dev"
+            }
+        },
+        "TracingConfig": {
+            "Mode": "PassThrough"
+        },
+        "RevisionId": "e8e242af-e5b3-4e49-82ae-32dff7b7f768",
+        "State": "Active",
+        "LastUpdateStatus": "Successful",
+        "PackageType": "Zip",
+        "Architectures": [
+            "x86_64"
+        ],
+        "EphemeralStorage": {
+            "Size": 512
+        },
+        "SnapStart": {
+            "ApplyOn": "None",
+            "OptimizationStatus": "Off"
+        },
+        "RuntimeVersionConfig": {
+            "RuntimeVersionArn": "arn:aws:lambda:us-east-1::runtime:d66b93d39c62355ef595cacc2d473507280d32dae3ddab0642986a3782101c39"
+        },
+        "LoggingConfig": {
+            "LogFormat": "JSON",
+            "ApplicationLogLevel": "INFO",
+            "SystemLogLevel": "INFO",
+            "LogGroup": "/aws/lambda/ndjson-parquet-manifest-builder-dev"
+        }
+    },
+    "Code": {
+        "RepositoryType": "S3",
+        "Location": "https://prod-04-2014-tasks.s3.us-east-1.amazonaws.com/snapshots/<ACCOUNT>/ndjson-parquet-manifest-builder-dev-c299deab-0173-411e-96c7-87281fbf8b18?versionId=dBuPqg8CYIBKqPxKdXQh9LpCStSJO.s0&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEMb%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaCXVzLWVhc3QtMSJHMEUCIQDBM4Dao0wO9iIbtL4C6MEMgMfI7ES1edzD6vs5%2F%2FEQowIgKUtYqKiQvcFh5x6zXrOFLjGzI7xFlPv5JsvD8ludZO0qlAIIjv%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARAAGgw3NDk2Nzg5MDI4MzkiDIzytlCTnvEatspTFSroAQ0BgnZqKAXE8%2F1GRgo2%2BP3x3u7GsnHX5emGPYZnRZFM%2BNtwwgNYVi%2FxjsGeKz7QX3Lb6%2B5rFBTBgxPgncPsxZuyZo1UFISVvN%2Bw3NWsU%2BxGY5L7S%2BBLYA0PIe%2FMelG%2BB%2FFrwCoBgRLitqnLrIvdwT%2BH1WC4u8Jo7nb6sX9ASOGcOmcmLIfG0P5LgL%2BnRHRshUaWS3mDCmqyB7BqgrvtDx3SqR05Lc%2FIqsMFz2AnwAkvX7Ixbk3G4mETvg2GPIWS8nOSxPr8vCE%2BkgR%2BRN4PFr5QNIyGnL9L9Z%2FV9Mn8qX33FAvMvBLVClAw3pfvywY6jQF78C9kouHCAhB%2FZ3qavOC0r3y9sfNyFORoOcJ76ShLvaJGQRB3sqGwfYOaBG2hdVkvcWM17i0crQ2EYHLEhteh4rgYbzmpxz9W9ACVrQORXe9VKEiB8fXN2s6YwgzBeItgkmJRFc6SUDD7341vN203j82ksogesGMQBTzDa7zeXsKSf20FAtDTBGaxRTw%3D&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20260130T040529Z&X-Amz-SignedHeaders=host&X-Amz-Expires=600&X-Amz-Credential=ASIA25DCYHY3SCRUUHHD%2F20260130%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=5ee6498cdd5bee51c23d449db04b66e854bf87084a9a3177e5064cd9cb917e7c"
+    },
+    "Tags": {
+        "Project": "ndjson-parquet-pipeline",
+        "Description": "Batches NDJSON files into manifests",
+        "ManagedBy": "Terraform",
+        "Environment": "dev",
+        "Name": "Manifest Builder Lambda"
+    },
+    "Concurrency": {
+        "ReservedConcurrentExecutions": 2
+    }
+}
+
+
+ndjson-parquet-manifest-builder-dev
+ndjson-parquet-sqs-manifest-builder
+
+# Create 10 test files
+for i in {1..10}; do
+  echo '{"test": "data", "id": '$i'}' > test-$(date +%s)-$i.ndjson
+  sleep 1
+done
+
+# Upload them
+aws s3 cp . s3://ndjson-input-sqs-<ACCOUNT>-dev/pipeline/input/ --recursive --exclude "*" --include "test-*.ndjson"
+
+# Wait for processing
+sleep 30
+
+# Check if new MANIFEST records were created
+bash check-manifest-records.sh
+--------------
+
+# 1. Check for pending or manifested test files
+aws dynamodb scan \
+  --table-name ndjson-parquet-sqs-file-tracking-dev \
+  --filter-expression "contains(file_key, :test)" \
+  --expression-attribute-values '{":test":{"S":"test-"}}' \
+  --region us-east-1 \
+  --output json | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+items = data.get('Items', [])
+print(f'Found {len(items)} test file records')
+for item in items[:5]:
+    file_key = item.get('file_key', {}).get('S', 'N/A')
+    status = item.get('status', {}).get('S', 'N/A')
+    date_prefix = item.get('date_prefix', {}).get('S', 'N/A')
+    print(f'  - {file_key}: {status} (date: {date_prefix})')
+"
+
+# 2. Check Lambda logs for the last 10 minutes to see if files were processed
+MSYS_NO_PATHCONV=1 aws logs tail /aws/lambda/ndjson-parquet-manifest-builder-dev --since 10m --region us-east-1 | grep -E "test-|MANIFEST tracking|manifests created|Step Function"
+
+# 3. Check for new manifests created in the last 10 minutes
+aws s3 ls s3://ndjson-manifest-sqs-<ACCOUNT>-dev/pipeline/manifests/2026-01-30/ --region us-east-1
+
+# 4. Check total record count to see if it increased
+aws dynamodb scan \
+  --table-name ndjson-parquet-sqs-file-tracking-dev \
+  --select "COUNT" \
+  --region us-east-1 \
+  --output json | python3 -c "import sys, json; print(f'Total records: {json.load(sys.stdin)[\"Count\"]}')"
+
+-------------
+# Upload the properly formatted test files
+aws s3 cp . s3://ndjson-input-sqs-<ACCOUNT>-dev/pipeline/input/ \
+  --recursive \
+  --exclude '*' \
+  --include '2026-01-30-test*.ndjson' \
+  --region us-east-1
+
+# Wait 30 seconds for Lambda to process
+sleep 30
+
+# Check if files were tracked in DynamoDB
+aws dynamodb scan \
+  --table-name ndjson-parquet-sqs-file-tracking-dev \
+  --filter-expression "begins_with(file_key, :prefix)" \
+  --expression-attribute-values '{":prefix":{"S":"2026-01-30-test"}}' \
+  --region us-east-1 \
+  --output json | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+items = data.get('Items', [])
+print(f'Found {len(items)} test file records in DynamoDB')
+for item in items[:5]:
+    file_key = item.get('file_key', {}).get('S', 'N/A')
+    status = item.get('status', {}).get('S', 'N/A')
+    date_prefix = item.get('date_prefix', {}).get('S', 'N/A')
+    print(f'  - {file_key}: {status} (date: {date_prefix})')
+"
+
+# Check for new MANIFEST records
+bash check-manifest-records.sh
+
+===============
+cd environments/dev/scripts
+
+# Create 10 test files with UTC dates
+bash create-test-files.sh
+
+# Upload them
+aws s3 cp . s3://ndjson-input-sqs-<ACCOUNT>-dev/pipeline/input/ \
+  --recursive \
+  --exclude '*' \
+  --include '2026-01-30-test*.ndjson' \
+  --region us-east-1
+
+# Wait 30 seconds for processing
+sleep 30
+
+# Check if MANIFEST records were created
+bash check-manifest-records.sh
+
+=============================
+I am using the following lambda function environments\dev\scripts\generate_ndjson.py to generate ndjson files. Can you review it.
+I would like to have the following changes.
+1-  ndjson file prefix must be  dynamic created instead of hard coding the date. 
+2- file ingestion must simulate the real ingestion which will generate ndjson file at various ingestion rate.
+
+# this is optional enhancement. I don't have to implement it if it is going to breack a working code.
+For Lambda_manifest_builder.py I would like to have the following enhancement.
+1- At the end of each lambda function instance, generate a metadata report of processed ndjson files and manifests and success/fail status. 
+2- Save (.json) and upload the report file to S3 bucket s3://ndjson-manifest-sqs-<ACCOUNT>-dev/logs/lambda/
+3- log filename must be like YYYY-mm-dd-Ttime-uuid-sequence.json example 2026-01-30T14314586-95547-0001.json
+
+will do the same for Glue job
+1- At the end of each glue job, generate a metadata report of processed manifest files and parquet files. and success/fails status
+2- Save (.json) and upload the report file to S3 bucket s3://ndjson-manifest-sqs-<ACCOUNT>-dev/logs/glue/
+3- log filename must be like YYYY-mm-dd-Ttime-uuid-sequence.json example 2026-01-30T14314586-95547-0001.json
+4- can you include YYYY-mm-dd-Ttime-uuid-sequence to .parquet filename 
+
+You can delegate this enhancement to another lambda function or any other service if you think is better approch...
+
+
+================
+
+cd environments/dev/scripts
+
+# 1. Deploy updated Lambda code
+bash deploy-lambda.sh
+
+# 2. Apply Terraform changes for Step Functions
+cd ../../../terraform
+terraform apply
+
+# 3. Test with new files (create and upload 20 files to get 2 manifests)
+cd ../environments/dev/scripts
+bash create-test-files.sh
+# Manually create 10 more files or run the script again
+
+# 4. Upload all files
+aws s3 cp . s3://ndjson-input-sqs-<ACCOUNT>-dev/pipeline/input/ \
+  --recursive \
+  --exclude '*' \
+  --include '2026-01-30-test*.ndjson' \
+  --region us-east-1
+
+# 5. Wait and check MANIFEST records (should see 2+ records for 2026-01-30)
+sleep 60
+bash check-manifest-records.sh
+
+
+------------
+
+Now let's verify Step Functions can update it correctly:
+
+# Check Step Functions execution status
+aws stepfunctions list-executions \
+  --state-machine-arn arn:aws:states:us-east-1:<ACCOUNT>:stateMachine:ndjson-parquet-processor-dev \
+  --max-results 5 \
+  --region us-east-1 \
+  --output json | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+execs = data.get('executions', [])
+print(f'Recent executions: {len(execs)}')
+print()
+for e in execs:
+    status = e['status']
+    started = e['startDate']
+    name = e['name']
+    print(f'{name}')
+    print(f'  Status: {status}')
+    print(f'  Started: {started}')
+    print()
+"
+
+# Wait 2 minutes for Glue job to complete
+sleep 120
+
+# Check MANIFEST records again
+bash check-manifest-records.sh
+
+==============
+
+Optional: Test with Multiple Manifests
+If you want to see multiple MANIFEST records for the same date (to fully verify no overwrites):
+
+# Create and upload 20 files (will create 2 manifests)
+cd environments/dev/scripts
+bash create-test-files.sh
+# Wait a few seconds, then create 10 more with different timestamp
+sleep 5
+bash create-test-files.sh
+
+# Upload all 20
+aws s3 cp . s3://ndjson-input-sqs-<ACCOUNT>-dev/pipeline/input/ \
+  --recursive \
+  --exclude '*' \
+  --include '2026-01-30-test*.ndjson' \
+  --region us-east-1
+
+# Wait for processing
+sleep 120
+
+# Check - should see 5 total MANIFEST records (3 old + 2 new)
+bash check-manifest-records.sh
+
+-----------------
+
+t's check if those 20 pending files are ready to create manifests:
+
+
+# Count pending files by date
+aws dynamodb scan \
+  --table-name ndjson-parquet-sqs-file-tracking-dev \
+  --filter-expression "#status = :status" \
+  --expression-attribute-names '{"#status":"status"}' \
+  --expression-attribute-values '{":status":{"S":"pending"}}' \
+  --region us-east-1 \
+  --output json | python3 -c "
+import sys, json
+from collections import Counter
+data = json.load(sys.stdin)
+items = data.get('Items', [])
+dates = Counter(item['date_prefix']['S'] for item in items)
+print(f'Total pending files: {len(items)}')
+print('\nBy date:')
+for date, count in sorted(dates.items()):
+    print(f'  {date}: {count} files')
+"
+If there are 20 pending files all for the same date, they should create 2 more manifests. If they haven't been processed yet, you can trigger Lambda manually or wait for the next file upload to trigger the orphan flush mechanism.
+
+
+===============
+
+# 1. Upload test files
+echo '{"file_count": 10}' > payload.json
+aws lambda invoke \
+  --function-name generate-ndjson-dev \
+  --payload file://payload.json \
+  response.json
+
+# 2. Wait ~2 minutes for processing
+
+# 3. Check Lambda metadata reports
+aws s3 ls s3://ndjson-manifest-sqs-<ACCOUNT>-dev/logs/lambda/ --recursive
+
+# 4. Check Glue metadata reports (after Step Functions triggers Glue)
+aws s3 ls s3://ndjson-manifest-sqs-<ACCOUNT>-dev/logs/glue/ --recursive
+
+# 5. View a Lambda report
+aws s3 cp s3://ndjson-manifest-sqs-<ACCOUNT>-dev/logs/lambda/<filename>.json - | jq .
+aws s3 cp s3://ndjson-manifest-sqs-<ACCOUNT>-dev/logs/lambda/2026-01-30-T084805-a271352a-0001.json - | jq .
+
+# 6. View a Glue report  
+aws s3 cp s3://ndjson-manifest-sqs-<ACCOUNT>-dev/logs/glue/2026-01-30-T085037-41b3d8bd-0001.json - | jq .
+
+# List parquet directories with timestamps
+aws s3 ls s3://ndjson-output-sqs-<ACCOUNT>-dev/ --recursive | grep merged-parquet
+
+# You should see:
+# merged-parquet-2026-01-30-T085032-58cfb6cb/
+# Instead of just:
+# merged-parquet-2026-01-30/
+
+
+------------
+
+# Navigate to terraform directory
+cd terraform
+
+# Upload updated Glue script to S3
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+aws s3 cp \
+  ../environments/dev/glue/glue_batch_job.py \
+  s3://ndjson-glue-scripts-${AWS_ACCOUNT_ID}-dev/scripts/glue_batch_job.py

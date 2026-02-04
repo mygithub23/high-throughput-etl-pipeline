@@ -1,0 +1,83 @@
+{
+    "RoleName": "ndjson-parquet-lambda-role-dev",
+    "PolicyName": "ndjson-parquet-lambda-policy",
+    "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Action": [
+                    "s3:GetObject",
+                    "s3:ListBucket",
+                    "s3:HeadObject"
+                ],
+                "Effect": "Allow",
+                "Resource": [
+                    "arn:aws:s3:::ndjson-input-sqs-<ACCOUNT>-dev",
+                    "arn:aws:s3:::ndjson-input-sqs-<ACCOUNT>-dev/*"
+                ]
+            },
+            {
+                "Action": [
+                    "s3:PutObject",
+                    "s3:GetObject"
+                ],
+                "Effect": "Allow",
+                "Resource": [
+                    "arn:aws:s3:::ndjson-manifest-sqs-<ACCOUNT>-dev/*"
+                ]
+            },
+            {
+                "Action": [
+                    "s3:PutObject"
+                ],
+                "Effect": "Allow",
+                "Resource": [
+                    "arn:aws:s3:::ndjson-quarantine-sqs-<ACCOUNT>-dev/*"
+                ]
+            },
+            {
+                "Action": [
+                    "dynamodb:PutItem",
+                    "dynamodb:GetItem",
+                    "dynamodb:UpdateItem",
+                    "dynamodb:DeleteItem",
+                    "dynamodb:Query",
+                    "dynamodb:Scan"
+                ],
+                "Effect": "Allow",
+                "Resource": [
+                    "arn:aws:dynamodb:us-east-1:<ACCOUNT>:table/ndjson-parquet-sqs-file-tracking-dev",
+                    "arn:aws:dynamodb:us-east-1:<ACCOUNT>:table/ndjson-parquet-sqs-file-tracking-dev/index/*"
+                ]
+            },
+            {
+                "Action": [
+                    "dynamodb:PutItem",
+                    "dynamodb:UpdateItem"
+                ],
+                "Effect": "Allow",
+                "Resource": [
+                    "arn:aws:dynamodb:us-east-1:<ACCOUNT>:table/ndjson-parquet-sqs-metrics-dev"
+                ]
+            },
+            {
+                "Action": [
+                    "sqs:ReceiveMessage",
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes"
+                ],
+                "Effect": "Allow",
+                "Resource": [
+                    "arn:aws:sqs:us-east-1:<ACCOUNT>:ndjson-parquet-file-events-dev"
+                ]
+            },
+            {
+                "Action": [
+                    "states:StartExecution"
+                ],
+                "Effect": "Allow",
+                "Resource": "*"
+            }
+        ]
+    }
+}

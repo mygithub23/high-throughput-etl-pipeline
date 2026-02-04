@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NDJSON to Parquet Pipeline - Architecture Diagrams</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .info-box {
+            background: white;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .info-box h2 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .info-box ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .info-box li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .info-box li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .metric-card {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+
+        .metric-card h3 {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-card p {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .diagram-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .diagram-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .diagram-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+
+        .diagram-header {
+            background: #667eea;
+            color: white;
+            padding: 1rem 1.5rem;
+        }
+
+        .diagram-header h3 {
+            font-size: 1.3rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .diagram-header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .diagram-content {
+            padding: 1rem;
+        }
+
+        .diagram-content img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+
+        .diagram-footer {
+            padding: 1rem 1.5rem;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .diagram-footer a {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-right: 0.5rem;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        .diagram-footer a:hover {
+            background: #5568d3;
+        }
+
+        .tags {
+            margin-top: 0.5rem;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            background: #e3f2fd;
+            color: #1976d2;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            margin-right: 0.5rem;
+            margin-top: 0.25rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+            background: white;
+            margin-top: 2rem;
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.05);
+        }
+
+        @media (max-width: 768px) {
+            .diagram-grid {
+                grid-template-columns: 1fr;
+            }
+
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            .metrics {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>NDJSON to Parquet Pipeline</h1>
+            <p>Architecture Diagrams - Batch Processing Mode (glueetl)</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Overview Box -->
+        <div class="info-box">
+            <h2>Pipeline Overview</h2>
+            <p>Event-driven batch processing pipeline converting NDJSON files to Parquet format with Snappy compression. Designed for high-throughput production workloads.</p>
+
+            <div class="metrics">
+                <div class="metric-card">
+                    <h3>Daily Files</h3>
+                    <p>338K files</p>
+                </div>
+                <div class="metric-card">
+                    <h3>File Size</h3>
+                    <p>3.5-4.5 GB</p>
+                </div>
+                <div class="metric-card">
+                    <h3>Daily Volume</h3>
+                    <p>1.3 PB</p>
+                </div>
+                <div class="metric-card">
+                    <h3>Processing Time</h3>
+                    <p>9-15 hours</p>
+                </div>
+                <div class="metric-card">
+                    <h3>Compression</h3>
+                    <p>5-7x</p>
+                </div>
+                <div class="metric-card">
+                    <h3>Daily Cost</h3>
+                    <p>$2.5-3.5K</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Architecture Details -->
+        <div class="info-box">
+            <h2>Architecture Highlights</h2>
+            <ul>
+                <li><strong>Mode:</strong> Batch Processing (glueetl) - NOT streaming</li>
+                <li><strong>Batching Strategy:</strong> File-count based (100 files per manifest)</li>
+                <li><strong>Concurrency:</strong> 30 Glue jobs running in parallel</li>
+                <li><strong>Workers:</strong> 20 × G.2X workers per job (16GB RAM each)</li>
+                <li><strong>Event Flow:</strong> S3 → SQS → Lambda → DynamoDB → Manifest → Glue</li>
+                <li><strong>Monitoring:</strong> CloudWatch + DynamoDB metrics + Custom dashboards</li>
+            </ul>
+        </div>
+
+        <!-- Diagrams -->
+        <div class="diagram-grid">
+            <!-- Diagram 1: Architecture Overview -->
+            <div class="diagram-card">
+                <div class="diagram-header">
+                    <h3>1. Architecture Overview</h3>
+                    <p>High-level system architecture and component interactions</p>
+                </div>
+                <div class="diagram-content">
+                    <img src="01-architecture-overview.svg" alt="Architecture Overview">
+                </div>
+                <div class="diagram-footer">
+                    <a href="01-architecture-overview.svg" target="_blank">Open Full Size</a>
+                    <a href="01-architecture-overview.svg" download>Download SVG</a>
+                    <div class="tags">
+                        <span class="tag">Complete Flow</span>
+                        <span class="tag">All Components</span>
+                        <span class="tag">Metrics</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diagram 2: Data Flow -->
+            <div class="diagram-card">
+                <div class="diagram-header">
+                    <h3>2. Data Flow</h3>
+                    <p>End-to-end data transformation pipeline with detailed steps</p>
+                </div>
+                <div class="diagram-content">
+                    <img src="02-data-flow.svg" alt="Data Flow Diagram">
+                </div>
+                <div class="diagram-footer">
+                    <a href="02-data-flow.svg" target="_blank">Open Full Size</a>
+                    <a href="02-data-flow.svg" download>Download SVG</a>
+                    <div class="tags">
+                        <span class="tag">7 Stages</span>
+                        <span class="tag">Transform Details</span>
+                        <span class="tag">Data Sizes</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diagram 3: File Lifecycle -->
+            <div class="diagram-card">
+                <div class="diagram-header">
+                    <h3>3. File Lifecycle</h3>
+                    <p>Complete state transitions from upload to completion</p>
+                </div>
+                <div class="diagram-content">
+                    <img src="03-file-lifecycle.svg" alt="File Lifecycle Diagram">
+                </div>
+                <div class="diagram-footer">
+                    <a href="03-file-lifecycle.svg" target="_blank">Open Full Size</a>
+                    <a href="03-file-lifecycle.svg" download>Download SVG</a>
+                    <div class="tags">
+                        <span class="tag">9 States</span>
+                        <span class="tag">DynamoDB Status</span>
+                        <span class="tag">Error Paths</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diagram 4: Sequence Diagram -->
+            <div class="diagram-card">
+                <div class="diagram-header">
+                    <h3>4. Sequence Diagram</h3>
+                    <p>Chronological component interactions with timing</p>
+                </div>
+                <div class="diagram-content">
+                    <img src="04-sequence-diagram.svg" alt="Sequence Diagram">
+                </div>
+                <div class="diagram-footer">
+                    <a href="04-sequence-diagram.svg" target="_blank">Open Full Size</a>
+                    <a href="04-sequence-diagram.svg" download>Download SVG</a>
+                    <div class="tags">
+                        <span class="tag">13 Steps</span>
+                        <span class="tag">Timeline</span>
+                        <span class="tag">API Calls</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diagram 5: SQS & Manifest Flow -->
+            <div class="diagram-card">
+                <div class="diagram-header">
+                    <h3>5. SQS & Manifest Flow</h3>
+                    <p>Detailed batching logic and manifest creation process</p>
+                </div>
+                <div class="diagram-content">
+                    <img src="05-sqs-manifest-flow.svg" alt="SQS and Manifest Flow">
+                </div>
+                <div class="diagram-footer">
+                    <a href="05-sqs-manifest-flow.svg" target="_blank">Open Full Size</a>
+                    <a href="05-sqs-manifest-flow.svg" download>Download SVG</a>
+                    <div class="tags">
+                        <span class="tag">File-Count Batching</span>
+                        <span class="tag">Manifest JSON</span>
+                        <span class="tag">Config</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Features -->
+        <div class="info-box">
+            <h2>Key Design Features</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
+                <div>
+                    <h3 style="color: #667eea; margin-bottom: 0.5rem;">Batch Processing</h3>
+                    <p style="font-size: 0.95rem;">Uses AWS Glue batch mode (glueetl) instead of streaming for better cost control and resource management. Jobs are triggered per manifest.</p>
+                </div>
+                <div>
+                    <h3 style="color: #667eea; margin-bottom: 0.5rem;">File-Count Batching</h3>
+                    <p style="font-size: 0.95rem;">Groups exactly 100 files per manifest regardless of total size. Optimal for 3.5-4.5 GB files with 500GB safety limit.</p>
+                </div>
+                <div>
+                    <h3 style="color: #667eea; margin-bottom: 0.5rem;">Parallel Processing</h3>
+                    <p style="font-size: 0.95rem;">30 Glue jobs run concurrently, each with 20 workers. Processes 3,000 files simultaneously for 8-15 hour daily completion.</p>
+                </div>
+                <div>
+                    <h3 style="color: #667eea; margin-bottom: 0.5rem;">State Tracking</h3>
+                    <p style="font-size: 0.95rem;">DynamoDB tracks file status through pending → manifested → completed states. GSI enables efficient querying of pending files.</p>
+                </div>
+                <div>
+                    <h3 style="color: #667eea; margin-bottom: 0.5rem;">Error Handling</h3>
+                    <p style="font-size: 0.95rem;">Invalid files quarantined based on size validation. Failed jobs logged to CloudWatch with retry capability.</p>
+                </div>
+                <div>
+                    <h3 style="color: #667eea; margin-bottom: 0.5rem;">Compression</h3>
+                    <p style="font-size: 0.95rem;">Snappy compression achieves 5-7x reduction. 1.3 PB NDJSON → 190-270 TB Parquet daily, saving storage costs.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Related Documentation -->
+        <div class="info-box">
+            <h2>Related Documentation</h2>
+            <ul>
+                <li><a href="../environments/CONFIG-REFERENCE.md" style="color: #667eea; text-decoration: none;">CONFIG-REFERENCE.md</a> - Complete configuration details</li>
+                <li><a href="../environments/WORKER-PERFORMANCE-BENCHMARKS.md" style="color: #667eea; text-decoration: none;">WORKER-PERFORMANCE-BENCHMARKS.md</a> - Performance calculations</li>
+                <li><a href="../environments/DEPLOYMENT-CHECKLIST.md" style="color: #667eea; text-decoration: none;">DEPLOYMENT-CHECKLIST.md</a> - Deployment guide</li>
+                <li><a href="../environments/BATCH-MODE-UPDATE-SUMMARY.md" style="color: #667eea; text-decoration: none;">BATCH-MODE-UPDATE-SUMMARY.md</a> - Architecture summary</li>
+                <li><a href="../ARCHITECTURE-OPTIONS.md" style="color: #667eea; text-decoration: none;">ARCHITECTURE-OPTIONS.md</a> - Alternative architectures</li>
+            </ul>
+        </div>
+    </div>
+
+    <footer>
+        <p><strong>NDJSON to Parquet Pipeline</strong> | Batch Processing Architecture | Updated: December 2025</p>
+        <p style="font-size: 0.9rem; margin-top: 0.5rem; color: #999;">
+            All diagrams are SVG format and can be opened/downloaded individually
+        </p>
+    </footer>
+</body>
+</html>

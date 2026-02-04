@@ -1,0 +1,44 @@
+
+
+
+*************## Production Metrics
+
+### Current Scale
+- **Daily Files**: 150,000 - 338,000 files
+- **File Size**: 3.5 - 4.5 GB per file
+- **Hourly Rate**: 1,500 - 13,750 files/hour
+- **Peak Rate**: ~2 files/second
+- **Daily Data Volume**: 525 TB - 1,520 TB (1.5 PB)
+- **Monthly Data Volume**: 15.75 PB - 45.6 PB
+
+Daily    hourly     minutely      secondly 
+150,000  1,500      25            0.41
+230,000  9,600      160           2.7
+338,000  14,000     234           3.9
+
+
+HI Claude! Could you design and develop this project, I prefer Python and PySpark programming languages.
+This project is about AWS event-driven data processing system that transforms high-throughput NDJSON data stream into optimized Parquet format with intelligent partitioning.
+Our customer ingests NDJSON files into an AWS S3 bucket.
+Project specification:
+-          Average NDJSON files size is 3.5 GB
+-     --->  We receive approximately 700 GB/hour of data and expecting data velocity my increases in the future.
+-          Each NDJSON filename is prefixed with date in the following format: yyyy-mm-dd-xxxxx.ndjson
+Project Requirement:
+·       Detect and validate incoming files.
+·       For optimal processing merge NDJSON files up to 1 GB
+·       Merged files must have the same filename prefix  yyyy-mm-dd
+·       Cast all NDJSON record values into string
+·       Convert each merged NDJSON file to Parquet with compression
+·       Create partition on the destination S3 bucket.
+·       Each partition must be on the following format: merged-parquet + filename prefix + today date and time example: merged-parquet-yyyy-mm-dd/yyyy-mm-dd-militaryHour-sequence-number.parquet
+·       Save parquet files into corresponding partition on destination S3 bucket.
+
+------------------
+
+Files/hour: 700GB ÷ 3.5MB = ~200,000 files/hour
+Files/minute: ~3,333 files/minute  
+Files/second: ~55 files/second
+Files/month: ~144 million files
+
+This is HIGH VOLUME, UNIFORM SIZE workload!
