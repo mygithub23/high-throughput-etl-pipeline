@@ -118,6 +118,12 @@ module "iam" {
   # SNS topic ARN (for Step Functions alerts)
   sns_topic_arn = module.monitoring.sns_topic_arn
 
+  # Specific resource ARNs for least-privilege IAM (replacing wildcards)
+  # Constructed deterministically to avoid circular dependencies
+  step_function_arn = "arn:aws:states:${local.region}:${local.account_id}:stateMachine:ndjson-parquet-processor-${var.environment}"
+  glue_job_arn      = "arn:aws:glue:${local.region}:${local.account_id}:job/ndjson-parquet-batch-job-${var.environment}"
+  lambda_dlq_arn    = "arn:aws:sqs:${local.region}:${local.account_id}:ndjson-parquet-lambda-dlq-${var.environment}"
+
   tags = local.common_tags
 }
 
@@ -161,6 +167,12 @@ module "lambda" {
 
   # DynamoDB TTL
   ttl_days = var.dynamodb_ttl_days
+
+  # Logging - DEBUG for dev, INFO for production
+  log_level = var.environment == "prod" ? "INFO" : "DEBUG"
+
+  # SNS topic for alarm notifications
+  alarm_sns_topic_arn = module.monitoring.sns_topic_arn
 
   # Step Functions ARN for triggering workflow after manifest creation
   # Constructed deterministically to avoid circular dependency with monitoring module

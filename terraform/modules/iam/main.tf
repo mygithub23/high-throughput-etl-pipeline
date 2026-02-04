@@ -133,7 +133,15 @@ resource "aws_iam_role_policy" "lambda" {
         Action = [
           "states:StartExecution"
         ]
-        Resource = "*"
+        Resource = var.step_function_arn
+      },
+      # DLQ permissions (for Lambda dead letter queue)
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:SendMessage"
+        ]
+        Resource = var.lambda_dlq_arn
       }
     ]
   })
@@ -393,7 +401,7 @@ resource "aws_iam_role_policy" "step_functions" {
           "glue:GetJobRuns",
           "glue:BatchStopJobRun"
         ]
-        Resource = "*"
+        Resource = var.glue_job_arn
       },
       # DynamoDB permissions - Update status
       {

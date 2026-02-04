@@ -63,6 +63,7 @@ resource "aws_lambda_function" "manifest_builder" {
       ENVIRONMENT            = var.environment
       STEP_FUNCTION_ARN      = var.step_function_arn
       TTL_DAYS               = var.ttl_days
+      LOG_LEVEL              = var.log_level
     }
   }
 
@@ -73,6 +74,44 @@ resource "aws_lambda_function" "manifest_builder" {
       Description = "Batches NDJSON files into manifests"
     }
   )
+}
+
+###############################################################################
+# Lambda Dead Letter Queue
+###############################################################################
+
+resource "aws_sqs_queue" "lambda_dlq" {
+  name                      = "ndjson-parquet-lambda-dlq-${var.environment}"
+  message_retention_seconds = 1209600 # 14 days
+
+  tags = merge(
+    var.tags,
+    {
+      Name        = "Lambda Manifest Builder DLQ"
+      Description = "Dead letter queue for failed Lambda invocations"
+    }
+  )
+}
+
+resource "aws_cloudwatch_metric_alarm" "lambda_dlq_messages" {
+  alarm_name          = "${var.environment}-Lambda-DLQ-Messages-CRITICAL"
+  alarm_description   = "Alert when messages arrive in Lambda DLQ - investigate failures"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  namespace           = "AWS/SQS"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 0
+  treat_missing_data  = "notBreaching"
+
+  alarm_actions = var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : []
+
+  dimensions = {
+    QueueName = aws_sqs_queue.lambda_dlq.name
+  }
+
+  tags = var.tags
 }
 
 ###############################################################################
@@ -111,6 +150,9 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   threshold           = 5
   treat_missing_data  = "notBreaching"
 
+  alarm_actions = var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : []
+  ok_actions    = var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : []
+
   dimensions = {
     FunctionName = aws_lambda_function.manifest_builder.function_name
   }
@@ -130,6 +172,9 @@ resource "aws_cloudwatch_metric_alarm" "lambda_throttles" {
   threshold           = 1
   treat_missing_data  = "notBreaching"
 
+  alarm_actions = var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : []
+  ok_actions    = var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : []
+
   dimensions = {
     FunctionName = aws_lambda_function.manifest_builder.function_name
   }
@@ -148,6 +193,9 @@ resource "aws_cloudwatch_metric_alarm" "lambda_duration" {
   statistic           = "Average"
   threshold           = var.manifest_builder_timeout * 1000 * 0.8 # 80% of timeout in milliseconds
   treat_missing_data  = "notBreaching"
+
+  alarm_actions = var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : []
+  ok_actions    = var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : []
 
   dimensions = {
     FunctionName = aws_lambda_function.manifest_builder.function_name

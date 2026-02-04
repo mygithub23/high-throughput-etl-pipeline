@@ -28,9 +28,10 @@ from decimal import Decimal
 from typing import List, Dict, Tuple, Optional
 import logging
 
-# Configure detailed logging for development
+# Configure logging level via environment variable (defaults to INFO for production safety)
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)  # DEBUG level for dev
+logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 
 # AWS Clients
 s3_client = boto3.client('s3')
@@ -271,8 +272,8 @@ def lambda_handler(event, context):
     logger.info("=" * 80)
 
     try:
-        # Log full event for debugging
-        logger.debug(f"📥 Event received: {json.dumps(event, indent=2, default=str)}")
+        # Log event summary (avoid logging full event to prevent sensitive data exposure)
+        logger.info(f"📥 Processing {len(event.get('Records', []))} SQS records")
 
         # Extract SQS records
         records = event.get('Records', [])
@@ -563,9 +564,15 @@ def track_file(bucket: str, key: str, date_prefix: str, file_name: str, size: in
 
         logger.debug(f"📝 Writing to DynamoDB: {json.dumps(item, indent=2, default=str)}")
 
-        table.put_item(Item=item)
-
-        logger.debug(f"✓ Item written to DynamoDB (TTL: {TTL_DAYS} days)")
+        try:
+            table.put_item(
+                Item=item,
+                ConditionExpression='attribute_not_exists(file_key)'
+            )
+            logger.debug(f"✓ Item written to DynamoDB (TTL: {TTL_DAYS} days)")
+        except dynamodb.meta.client.exceptions.ConditionalCheckFailedException:
+            logger.info(f"File {file_name} already tracked (idempotent retry)")
+            return
 
     except Exception as e:
         logger.error(f"✗ Error tracking file: {str(e)}")
@@ -657,7 +664,13 @@ def create_manifests_if_ready(date_prefix: str) -> int:
                     logger.debug(f"✓ Updated {len(batch_files)} file statuses")
 
                     # Trigger Step Functions workflow
-                    start_step_function(manifest_path, date_prefix, len(batch_files))
+                    execution_arn = start_step_function(manifest_path, date_prefix, len(batch_files))
+
+                    # If SF failed to start, rollback file statuses to pending
+                    if not execution_arn and STEP_FUNCTION_ARN:
+                        logger.warning(f"⚠️ Step Function start failed, rolling back file statuses")
+                        _update_file_status(batch_files, 'pending', None)
+                        manifests_created -= 1
 
             except Exception as e:
                 logger.error(f"✗ Error creating manifest {batch_idx}: {str(e)}")
@@ -816,7 +829,8 @@ def _get_pending_files(date_prefix: str) -> List[Dict]:
                 'ExpressionAttributeValues': {
                     ':prefix': date_prefix,
                     ':status': 'pending'
-                }
+                },
+                'Limit': MAX_FILES_PER_MANIFEST + 1
             }
 
             if last_evaluated_key:
@@ -841,6 +855,11 @@ def _get_pending_files(date_prefix: str) -> List[Dict]:
                     'date_prefix': item['date_prefix'],
                     's3_path': item['file_path']
                 })
+
+            # Stop pagination early if we have enough files
+            if len(files) >= MAX_FILES_PER_MANIFEST:
+                logger.info(f"Retrieved {len(files)} files (reached limit)")
+                break
 
             last_evaluated_key = response.get('LastEvaluatedKey')
             if not last_evaluated_key:
@@ -988,25 +1007,23 @@ def _update_file_status(files: List[Dict], status: str, manifest_path: str):
 
 def start_step_function(manifest_path: str, date_prefix: str, file_count: int) -> Optional[str]:
     logger.info("---------- start_step_function -------------")
-    """Start Step Functions workflow to process manifest."""
+    """Start Step Functions workflow to process manifest.
+
+    IMPORTANT: Start SF execution FIRST, then create MANIFEST record.
+    This prevents orphaned MANIFEST records if SF fails to start.
+    """
     if not STEP_FUNCTION_ARN:
         logger.warning("⚠️  STEP_FUNCTION_ARN not set, skipping Step Function trigger")
         return None
 
     try:
-        # CRITICAL: Create MANIFEST meta-record in DynamoDB BEFORE starting Step Functions
-        # This record tracks the batch processing status (pending → processing → completed/failed)
-        # Step Functions will update this record as the Glue job progresses
-        logger.info(f"📝 Creating MANIFEST tracking record for {date_prefix}")
-
-        # Extract manifest filename to create unique file_key
-        # manifest_path format: "manifests/2026-01-30/batch-0001-20260130-051111.json"
         manifest_filename = manifest_path.split('/')[-1]
-
         ttl_timestamp = int(time.time()) + (TTL_DAYS * 24 * 60 * 60)
+
+        # Prepare manifest record but DON'T write yet
         manifest_record = {
             'date_prefix': date_prefix,
-            'file_key': f'MANIFEST#{manifest_filename}',  # Unique key per manifest to prevent overwrites
+            'file_key': f'MANIFEST#{manifest_filename}',
             'status': 'pending',
             'file_count': file_count,
             'manifest_path': manifest_path,
@@ -1014,25 +1031,28 @@ def start_step_function(manifest_path: str, date_prefix: str, file_count: int) -
             'ttl': ttl_timestamp
         }
 
-        table.put_item(Item=manifest_record)
-        logger.info(f"✓ MANIFEST record created: {date_prefix}/MANIFEST#{manifest_filename}")
-
-        # Now start Step Functions execution
+        # STEP 1: Start Step Functions FIRST
         logger.info(f"🚀 Starting Step Function execution for manifest: {manifest_path}")
 
-        response = sfn_client.start_execution(
+        sf_response = sfn_client.start_execution(
             stateMachineArn=STEP_FUNCTION_ARN,
             input=json.dumps({
                 'manifest_path': manifest_path,
                 'date_prefix': date_prefix,
                 'file_count': file_count,
-                'file_key': f'MANIFEST#{manifest_filename}',  # Pass file_key for DynamoDB updates
+                'file_key': f'MANIFEST#{manifest_filename}',
                 'timestamp': datetime.now(timezone.utc).isoformat()
             })
         )
 
-        execution_arn = response['executionArn']
+        execution_arn = sf_response['executionArn']
         logger.info(f"✓ Started Step Function execution: {execution_arn}")
+
+        # STEP 2: Write MANIFEST record ONLY after SF succeeds
+        manifest_record['execution_arn'] = execution_arn
+        table.put_item(Item=manifest_record)
+        logger.info(f"✓ MANIFEST record created: {date_prefix}/MANIFEST#{manifest_filename}")
+
         return execution_arn
 
     except Exception as e:

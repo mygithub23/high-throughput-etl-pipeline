@@ -52,6 +52,21 @@ variable "sns_topic_arn" {
   type        = string
 }
 
+variable "step_function_arn" {
+  description = "Step Functions state machine ARN for Lambda to invoke"
+  type        = string
+}
+
+variable "glue_job_arn" {
+  description = "Glue job ARN for Step Functions to invoke"
+  type        = string
+}
+
+variable "lambda_dlq_arn" {
+  description = "Lambda Dead Letter Queue ARN"
+  type        = string
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

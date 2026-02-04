@@ -125,6 +125,22 @@ variable "ttl_days" {
   default     = 30
 }
 
+variable "alarm_sns_topic_arn" {
+  description = "SNS topic ARN for CloudWatch alarm notifications"
+  type        = string
+  default     = ""
+}
+
+variable "log_level" {
+  description = "Logging level for Lambda function"
+  type        = string
+  default     = "INFO"
+  validation {
+    condition     = contains(["DEBUG", "INFO", "WARNING", "ERROR"], var.log_level)
+    error_message = "log_level must be DEBUG, INFO, WARNING, or ERROR."
+  }
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

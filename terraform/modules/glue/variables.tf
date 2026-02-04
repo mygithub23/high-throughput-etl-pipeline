@@ -135,6 +135,16 @@ variable "log_retention_days" {
   default     = 7
 }
 
+variable "compression_type" {
+  description = "Parquet compression codec"
+  type        = string
+  default     = "snappy"
+  validation {
+    condition     = contains(["snappy", "gzip", "lzo", "brotli", "lz4", "zstd"], var.compression_type)
+    error_message = "compression_type must be a valid Parquet codec."
+  }
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

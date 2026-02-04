@@ -62,6 +62,7 @@ resource "aws_glue_job" "batch_processor" {
     "--TRACKING_TABLE"    = var.file_tracking_table_name
     "--METRICS_TABLE"     = var.metrics_table_name
     "--ENVIRONMENT"       = var.environment
+    "--COMPRESSION_TYPE"  = var.compression_type
   }
 
   execution_property {
