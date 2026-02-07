@@ -52,6 +52,10 @@ resource "aws_dynamodb_table" "file_tracking" {
     write_capacity  = var.file_tracking_write_capacity
   }
 
+  # Enable DynamoDB Streams for event-driven manifest creation
+  stream_enabled   = var.enable_streams
+  stream_view_type = var.enable_streams ? "NEW_AND_OLD_IMAGES" : null
+
   # Enable TTL
   ttl {
     attribute_name = "ttl"

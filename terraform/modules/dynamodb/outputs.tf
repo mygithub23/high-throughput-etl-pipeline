@@ -27,3 +27,8 @@ output "metrics_table_id" {
   description = "Metrics table ID"
   value       = aws_dynamodb_table.metrics.id
 }
+
+output "file_tracking_table_stream_arn" {
+  description = "File tracking table DynamoDB Stream ARN"
+  value       = var.enable_streams ? aws_dynamodb_table.file_tracking.stream_arn : ""
+}

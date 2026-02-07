@@ -71,6 +71,11 @@ variable "compression_type" {
   default     = "snappy"
 }
 
+variable "batch_status_updater_function_name" {
+  description = "Function name of the batch status updater Lambda (invoked after Glue completes)"
+  type        = string
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

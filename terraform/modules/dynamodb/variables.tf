@@ -49,6 +49,12 @@ variable "enable_autoscaling" {
   default     = false
 }
 
+variable "enable_streams" {
+  description = "Enable DynamoDB Streams on file tracking table for event-driven manifest creation"
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

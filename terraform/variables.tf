@@ -307,3 +307,25 @@ variable "sqs_batch_size" {
   type        = number
   default     = 10
 }
+
+###############################################################################
+# Phase 3: Scaling Configuration
+###############################################################################
+
+variable "enable_eventbridge_decoupling" {
+  description = "Enable EventBridge-based Step Functions invocation instead of direct"
+  type        = bool
+  default     = false
+}
+
+variable "num_status_shards" {
+  description = "Number of GSI write shards for DynamoDB status partitioning"
+  type        = number
+  default     = 10
+}
+
+variable "enable_stream_manifest_creation" {
+  description = "Enable DynamoDB Streams-based manifest creation"
+  type        = bool
+  default     = false
+}

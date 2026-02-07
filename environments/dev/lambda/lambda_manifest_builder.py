@@ -23,6 +23,7 @@ import hashlib
 import time
 import re
 import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import List, Dict, Tuple, Optional
@@ -38,6 +39,7 @@ s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
 glue_client = boto3.client('glue')
 sfn_client = boto3.client('stepfunctions')
+events_client = boto3.client('events')
 
 # Environment Variables with validation
 try:
@@ -66,10 +68,23 @@ MIN_FILES_FOR_PARTIAL_BATCH = int(os.environ.get('MIN_FILES_FOR_PARTIAL_BATCH', 
 # Records will be automatically deleted after this many days
 TTL_DAYS = int(os.environ.get('TTL_DAYS', '30'))
 
+# GSI Write-Sharding configuration
+# Distributes status values across N shards to avoid DynamoDB hot partition
+# e.g., status='pending#3' instead of status='pending'
+NUM_STATUS_SHARDS = int(os.environ.get('NUM_STATUS_SHARDS', '10'))
+
+# EventBridge configuration (Phase 3: decoupled Step Functions invocation)
+EVENT_BUS_NAME = os.environ.get('EVENT_BUS_NAME', '')
+
+# DynamoDB Streams manifest creation toggle
+ENABLE_STREAM_MANIFEST_CREATION = os.environ.get('ENABLE_STREAM_MANIFEST_CREATION', 'false').lower() == 'true'
+
 # Log all configuration
 logger.info(f"Configuration: MAX_FILES_PER_MANIFEST={MAX_FILES_PER_MANIFEST}, EXPECTED_FILE_SIZE_MB={EXPECTED_FILE_SIZE_MB}")
 logger.info(f"Configuration: SIZE_TOLERANCE_PERCENT={SIZE_TOLERANCE_PERCENT}, LOCK_TTL_SECONDS={LOCK_TTL_SECONDS}")
 logger.info(f"Configuration: MIN_FILES_FOR_PARTIAL_BATCH={MIN_FILES_FOR_PARTIAL_BATCH}, TTL_DAYS={TTL_DAYS}")
+logger.info(f"Configuration: NUM_STATUS_SHARDS={NUM_STATUS_SHARDS}, EVENT_BUS_NAME={EVENT_BUS_NAME}")
+logger.info(f"Configuration: ENABLE_STREAM_MANIFEST_CREATION={ENABLE_STREAM_MANIFEST_CREATION}")
 
 # DynamoDB table
 table = dynamodb.Table(TRACKING_TABLE)
@@ -77,6 +92,97 @@ table = dynamodb.Table(TRACKING_TABLE)
 # Module-level list to track manifests created during Lambda execution
 # Reset in lambda_handler, populated in _create_manifest
 _manifests_created_this_execution = []
+
+
+def _compute_shard_id(file_name: str) -> int:
+    """Compute a deterministic shard ID from a filename using MD5 hash.
+
+    This distributes files evenly across NUM_STATUS_SHARDS partitions
+    to avoid DynamoDB GSI hot partition on status values.
+    """
+    return int(hashlib.md5(file_name.encode()).hexdigest(), 16) % NUM_STATUS_SHARDS
+
+
+def _sharded_status(base_status: str, shard_id: int) -> str:
+    """Create a sharded status value like 'pending#3'."""
+    return f"{base_status}#{shard_id}"
+
+
+def _base_status(sharded_status: str) -> str:
+    """Extract base status from sharded value: 'pending#3' -> 'pending'."""
+    return sharded_status.split('#')[0]
+
+
+def _shard_from_status(sharded_status: str) -> Optional[int]:
+    """Extract shard ID from sharded status: 'pending#3' -> 3."""
+    parts = sharded_status.split('#')
+    if len(parts) == 2 and parts[1].isdigit():
+        return int(parts[1])
+    return None
+
+
+class CircuitBreakerOpenException(Exception):
+    """Raised when circuit breaker is in OPEN state."""
+    pass
+
+
+class CircuitBreaker:
+    """Circuit breaker pattern for graceful degradation.
+
+    States:
+    - CLOSED: Normal operation, calls pass through
+    - OPEN: Fail-fast, calls rejected immediately
+    - HALF_OPEN: Testing recovery, allows one call through
+
+    Thread-safe for Lambda container reuse across invocations.
+    """
+
+    CLOSED = 'CLOSED'
+    OPEN = 'OPEN'
+    HALF_OPEN = 'HALF_OPEN'
+
+    def __init__(self, failure_threshold: int = 3, recovery_timeout: int = 300):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.state = self.CLOSED
+        self.failure_count = 0
+        self.last_failure_time = 0.0
+
+    def can_execute(self) -> bool:
+        """Check if a call is allowed through the circuit breaker."""
+        if self.state == self.CLOSED:
+            return True
+        if self.state == self.OPEN:
+            if time.time() - self.last_failure_time >= self.recovery_timeout:
+                logger.info("🔌 Circuit breaker transitioning to HALF_OPEN")
+                self.state = self.HALF_OPEN
+                return True
+            return False
+        # HALF_OPEN: allow one test call
+        return True
+
+    def record_success(self):
+        """Record a successful call, resetting the circuit breaker."""
+        if self.state == self.HALF_OPEN:
+            logger.info("🔌 Circuit breaker transitioning to CLOSED (recovery confirmed)")
+        self.failure_count = 0
+        self.state = self.CLOSED
+
+    def record_failure(self):
+        """Record a failed call, potentially opening the circuit breaker."""
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+
+        if self.state == self.HALF_OPEN:
+            logger.warning("🔌 Circuit breaker transitioning to OPEN (recovery failed)")
+            self.state = self.OPEN
+        elif self.failure_count >= self.failure_threshold:
+            logger.warning(f"🔌 Circuit breaker OPEN after {self.failure_count} failures")
+            self.state = self.OPEN
+
+
+# Circuit breaker for EventBridge calls (survives across Lambda invocations via container reuse)
+eventbridge_breaker = CircuitBreaker(failure_threshold=3, recovery_timeout=300)
 
 
 class DistributedLock:
@@ -173,7 +279,7 @@ def upload_lambda_metadata_report(
             return
 
         execution_time = time.time() - execution_start_time
-        timestamp = datetime.now(timezone.utc)
+        timestamp  = datetime.now(timezone.utc)
 
         # Generate unique filename: YYYY-mm-dd-Ttime-uuid-sequence.json
         date_str = timestamp.strftime('%Y-%m-%d')
@@ -411,46 +517,14 @@ def process_file(bucket: str, key: str, size: int) -> str:
         track_file(bucket, key, date_prefix, file_name, size)
         logger.debug(f"✓ File tracked in DynamoDB")
 
-        # Keep creating manifests until all pending files are processed
-        # This handles the case where multiple Lambdas run in parallel
-        total_manifests = 0
-        max_iterations = 50  # Safety limit to prevent infinite loops
-        consecutive_failures = 0
-        max_consecutive_failures = 3  # Retry up to 3 times if lock is held
-
-        for iteration in range(1, max_iterations + 1):
-            logger.debug(f"🔍 Manifest creation iteration {iteration} for {date_prefix}")
-
+        # If stream-based manifest creation is enabled, skip polling-based creation
+        if ENABLE_STREAM_MANIFEST_CREATION:
+            logger.info(f"ℹ️  Stream-based manifest creation enabled, skipping polling")
+        else:
+            # Create manifests if threshold reached (atomic claims handle concurrency)
             manifests_created = create_manifests_if_ready(date_prefix)
-
             if manifests_created > 0:
-                total_manifests += manifests_created
-                consecutive_failures = 0  # Reset failure counter on success
-                logger.info(f"✓ Iteration {iteration}: Created {manifests_created} manifest(s) for {date_prefix}")
-                # Small delay to allow other Lambdas to finish their DynamoDB writes
-                time.sleep(0.1)
-            else:
-                # Check if there are still enough pending files (lock contention case)
-                pending_count = _count_pending_files(date_prefix)
-                logger.debug(f"ℹ️  Iteration {iteration}: No manifests created, {pending_count} files still pending")
-
-                if pending_count >= MAX_FILES_PER_MANIFEST:
-                    # Files are pending but we couldn't create manifest (likely lock contention)
-                    consecutive_failures += 1
-                    if consecutive_failures < max_consecutive_failures:
-                        logger.info(f"⏳ Lock contention detected, waiting and retrying ({consecutive_failures}/{max_consecutive_failures})")
-                        time.sleep(0.5)  # Wait 500ms before retrying
-                        continue
-                    else:
-                        logger.info(f"ℹ️  Max retries reached, another Lambda will handle remaining files")
-                        break
-                else:
-                    # Not enough files to create a manifest
-                    logger.debug(f"ℹ️  Not enough pending files ({pending_count} < {MAX_FILES_PER_MANIFEST})")
-                    break
-
-        if total_manifests > 0:
-            logger.info(f"✓ Total: Created {total_manifests} manifest(s) for {date_prefix}")
+                logger.info(f"✓ Created {manifests_created} manifest(s) for {date_prefix}")
 
         # Also check for orphaned files from previous days and flush them
         orphan_manifests = flush_orphaned_dates()
@@ -551,13 +625,17 @@ def track_file(bucket: str, key: str, date_prefix: str, file_name: str, size: in
         # Calculate TTL (Unix timestamp when record should expire)
         ttl_timestamp = int(time.time()) + (TTL_DAYS * 24 * 60 * 60)
 
+        # Compute shard ID for GSI write-sharding
+        shard_id = _compute_shard_id(file_name)
+
         # Note: DynamoDB table uses 'file_key' as the range key (not 'file_name')
         item = {
             'date_prefix': date_prefix,
             'file_key': file_name,  # Range key in DynamoDB
             'file_path': f's3://{bucket}/{key}',
             'file_size_mb': Decimal(str(size / (1024 * 1024))),
-            'status': 'pending',
+            'status': _sharded_status('pending', shard_id),
+            'shard_id': shard_id,
             'created_at': datetime.now(timezone.utc).isoformat(),
             'ttl': ttl_timestamp  # TTL attribute for automatic expiration
         }
@@ -580,28 +658,69 @@ def track_file(bucket: str, key: str, date_prefix: str, file_name: str, size: in
         raise
 
 
+def _claim_files_atomically(files: List[Dict], manifest_path: str) -> List[Dict]:
+    """Atomically claim files for a manifest using per-file conditional writes.
+
+    For each file, performs a conditional update that transitions the status
+    from pending#N to manifested#N ONLY if the file is still in pending state.
+    This replaces the distributed lock with optimistic concurrency control.
+
+    Returns:
+        List of successfully claimed files.
+    """
+    claimed = []
+    for file_info in files:
+        try:
+            shard_id = file_info.get('shard_id', _compute_shard_id(file_info['filename']))
+            expected_status = file_info.get('status', _sharded_status('pending', shard_id))
+            new_status = _sharded_status('manifested', shard_id)
+            ttl_timestamp = int(time.time()) + (TTL_DAYS * 24 * 60 * 60)
+
+            table.update_item(
+                Key={
+                    'date_prefix': file_info['date_prefix'],
+                    'file_key': file_info['filename']
+                },
+                UpdateExpression='SET #status = :new_status, manifest_path = :manifest, updated_at = :updated, #ttl = :ttl',
+                ConditionExpression='#status = :expected_status',
+                ExpressionAttributeNames={
+                    '#status': 'status',
+                    '#ttl': 'ttl'
+                },
+                ExpressionAttributeValues={
+                    ':new_status': new_status,
+                    ':expected_status': expected_status,
+                    ':manifest': manifest_path,
+                    ':updated': datetime.now(timezone.utc).isoformat(),
+                    ':ttl': ttl_timestamp
+                }
+            )
+            claimed.append(file_info)
+        except dynamodb.meta.client.exceptions.ConditionalCheckFailedException:
+            logger.info(f"⚡ File {file_info['filename']} already claimed by another Lambda")
+        except Exception as e:
+            logger.error(f"✗ Error claiming {file_info['filename']}: {str(e)}")
+
+    logger.info(f"🔒 Claimed {len(claimed)}/{len(files)} files atomically")
+    return claimed
+
+
 def create_manifests_if_ready(date_prefix: str) -> int:
     """
     Check if ready to create manifests based on file count threshold.
 
+    Uses atomic per-file conditional writes instead of distributed locks
+    to prevent duplicate manifest creation across concurrent Lambda invocations.
+
     For current day: Requires MAX_FILES_PER_MANIFEST files to create a batch.
     For previous days: Creates partial batch with any remaining files (orphan flush).
-
-    This prevents files from being stranded when the day changes before
-    reaching the full batch threshold.
     """
     logger.info("---------- create_manifests_if_ready -------------")
-    lock = DistributedLock(LOCK_TABLE, f'manifest-{date_prefix}', LOCK_TTL_SECONDS)
 
     try:
-        # Try to acquire lock
-        if not lock.acquire():
-            logger.info(f"ℹ️  Another process is handling manifests for {date_prefix}")
-            return 0
-
         logger.debug(f"🔍 Getting pending files for {date_prefix}")
 
-        # Get pending files
+        # Get pending files (no lock needed - atomic claims handle concurrency)
         all_files = _get_pending_files(date_prefix)
         logger.info(f"📦 Found {len(all_files)} pending files (threshold: {MAX_FILES_PER_MANIFEST})")
 
@@ -624,8 +743,6 @@ def create_manifests_if_ready(date_prefix: str) -> int:
             logger.info(f"🔄 Triggering end-of-day flush for orphaned files")
 
         # Determine the threshold for creating a manifest
-        # For previous days: use MIN_FILES_FOR_PARTIAL_BATCH (flush orphans)
-        # For current day: use MAX_FILES_PER_MANIFEST (normal batching)
         effective_threshold = MIN_FILES_FOR_PARTIAL_BATCH if is_previous_day else MAX_FILES_PER_MANIFEST
 
         # Check if we have enough files to create a manifest
@@ -639,8 +756,6 @@ def create_manifests_if_ready(date_prefix: str) -> int:
             logger.info(f"✓ File threshold reached! Creating manifests...")
 
         # Create batches
-        # For previous days: include partial batches (flush all remaining)
-        # For current day: only full batches
         batches = _create_batches(all_files, allow_partial=is_previous_day)
         logger.info(f"📦 Created {len(batches)} batch(es)")
 
@@ -648,29 +763,52 @@ def create_manifests_if_ready(date_prefix: str) -> int:
             batch_size_mb = sum(f['size_bytes'] for f in batch) / (1024**2)
             logger.debug(f"   Batch {i}: {len(batch)} files, {batch_size_mb:.2f}MB")
 
-        # Create manifests
+        # Claim files atomically FIRST, then create manifest with only claimed files
         manifests_created = 0
         for batch_idx, batch_files in enumerate(batches, 1):
             try:
-                logger.debug(f"📝 Creating manifest {batch_idx}/{len(batches)}")
-                manifest_path = _create_manifest(date_prefix, batch_idx, batch_files)
+                logger.debug(f"🔒 Claiming files for batch {batch_idx}/{len(batches)}")
 
-                if manifest_path:
-                    manifests_created += 1
-                    logger.info(f"✓ Manifest created: {manifest_path}")
+                # Step 1: Atomically claim files BEFORE creating manifest
+                # Use a placeholder manifest path during claiming (will be updated after manifest creation)
+                placeholder_path = f"pending-manifest-{date_prefix}-{batch_idx}-{int(time.time())}"
+                claimed_files = _claim_files_atomically(batch_files, placeholder_path)
 
-                    # Update file status
-                    _update_file_status(batch_files, 'manifested', manifest_path)
-                    logger.debug(f"✓ Updated {len(batch_files)} file statuses")
+                # Step 2: Check if enough files were claimed using the correct threshold
+                # For today's files: require MAX_FILES_PER_MANIFEST (full batch only)
+                # For previous days (orphan flush): require MIN_FILES_FOR_PARTIAL_BATCH
+                claim_threshold = MIN_FILES_FOR_PARTIAL_BATCH if is_previous_day else MAX_FILES_PER_MANIFEST
 
-                    # Trigger Step Functions workflow
-                    execution_arn = start_step_function(manifest_path, date_prefix, len(batch_files))
+                if len(claimed_files) < claim_threshold:
+                    # Not enough files claimed — release them back to pending
+                    logger.info(f"ℹ️  Only claimed {len(claimed_files)} files (need {claim_threshold}), releasing them")
+                    if claimed_files:
+                        _update_file_status(claimed_files, 'pending', None)
+                    continue
 
-                    # If SF failed to start, rollback file statuses to pending
-                    if not execution_arn and STEP_FUNCTION_ARN:
-                        logger.warning(f"⚠️ Step Function start failed, rolling back file statuses")
-                        _update_file_status(batch_files, 'pending', None)
-                        manifests_created -= 1
+                # Step 3: Create manifest with ONLY the successfully claimed files
+                logger.debug(f"📝 Creating manifest {batch_idx}/{len(batches)} with {len(claimed_files)} claimed files")
+                manifest_path = _create_manifest(date_prefix, batch_idx, claimed_files)
+
+                if not manifest_path:
+                    logger.error(f"✗ Failed to create manifest, releasing {len(claimed_files)} claimed files")
+                    _update_file_status(claimed_files, 'pending', None)
+                    continue
+
+                # Step 4: Update claimed files with the real manifest path
+                _update_manifest_path(claimed_files, manifest_path)
+
+                manifests_created += 1
+                logger.info(f"✓ Manifest created with {len(claimed_files)} files: {manifest_path}")
+
+                # Step 5: Trigger workflow via EventBridge or direct Step Functions
+                success = publish_manifest_event(manifest_path, date_prefix, len(claimed_files))
+
+                if not success and (STEP_FUNCTION_ARN or EVENT_BUS_NAME):
+                    logger.warning(f"⚠️ Event publish failed, rolling back file statuses")
+                    _update_file_status(claimed_files, 'pending', None)
+                    _delete_manifest(manifest_path)
+                    manifests_created -= 1
 
             except Exception as e:
                 logger.error(f"✗ Error creating manifest {batch_idx}: {str(e)}")
@@ -682,9 +820,6 @@ def create_manifests_if_ready(date_prefix: str) -> int:
         logger.error(f"✗ Error in create_manifests_if_ready: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         return 0
-
-    finally:
-        lock.release()
 
 
 def flush_orphaned_dates() -> int:
@@ -738,32 +873,43 @@ def _get_orphaned_date_prefixes(today: str) -> List[str]:
     """
     try:
         orphaned_dates = set()
-        last_evaluated_key = None
 
-        while True:
-            # Query the GSI for pending files
-            query_params = {
-                'IndexName': 'status-index',
-                'KeyConditionExpression': '#status = :status',
-                'ExpressionAttributeNames': {'#status': 'status'},
-                'ExpressionAttributeValues': {':status': 'pending'},
-                'ProjectionExpression': 'date_prefix'  # Only get date_prefix to minimize data transfer
-            }
+        def _query_shard_for_orphans(status_value: str) -> set:
+            """Query a single shard of the status-index GSI for orphaned dates."""
+            shard_orphans = set()
+            last_key = None
+            while True:
+                query_params = {
+                    'IndexName': 'status-index',
+                    'KeyConditionExpression': '#status = :status',
+                    'ExpressionAttributeNames': {'#status': 'status'},
+                    'ExpressionAttributeValues': {':status': status_value},
+                    'ProjectionExpression': 'date_prefix'
+                }
+                if last_key:
+                    query_params['ExclusiveStartKey'] = last_key
+                response = table.query(**query_params)
+                for item in response.get('Items', []):
+                    dp = item.get('date_prefix')
+                    if dp and dp < today:
+                        shard_orphans.add(dp)
+                last_key = response.get('LastEvaluatedKey')
+                if not last_key:
+                    break
+            return shard_orphans
 
-            if last_evaluated_key:
-                query_params['ExclusiveStartKey'] = last_evaluated_key
+        # Query all shards in parallel using ThreadPoolExecutor
+        shard_statuses = [_sharded_status('pending', i) for i in range(NUM_STATUS_SHARDS)]
+        # Also query legacy unsharded 'pending' for backward compatibility
+        shard_statuses.append('pending')
 
-            response = table.query(**query_params)
-
-            # Extract unique date_prefixes that are before today
-            for item in response.get('Items', []):
-                date_prefix = item.get('date_prefix')
-                if date_prefix and date_prefix < today:
-                    orphaned_dates.add(date_prefix)
-
-            last_evaluated_key = response.get('LastEvaluatedKey')
-            if not last_evaluated_key:
-                break
+        with ThreadPoolExecutor(max_workers=min(NUM_STATUS_SHARDS + 1, 10)) as executor:
+            futures = {executor.submit(_query_shard_for_orphans, s): s for s in shard_statuses}
+            for future in as_completed(futures):
+                try:
+                    orphaned_dates.update(future.result())
+                except Exception as e:
+                    logger.error(f"Error querying shard {futures[future]}: {e}")
 
         # Return sorted list of orphaned dates
         return sorted(list(orphaned_dates))
@@ -784,11 +930,11 @@ def _count_pending_files(date_prefix: str) -> int:
         while True:
             query_params = {
                 'KeyConditionExpression': 'date_prefix = :prefix',
-                'FilterExpression': '#status = :status',
+                'FilterExpression': 'begins_with(#status, :status_prefix)',
                 'ExpressionAttributeNames': {'#status': 'status'},
                 'ExpressionAttributeValues': {
                     ':prefix': date_prefix,
-                    ':status': 'pending'
+                    ':status_prefix': 'pending'
                 },
                 'Select': 'COUNT'
             }
@@ -822,13 +968,15 @@ def _get_pending_files(date_prefix: str) -> List[Dict]:
             page += 1
             logger.debug(f"📄 Querying DynamoDB page {page}")
 
+            # Use begins_with to match all shards: pending#0, pending#1, ..., pending#9
+            # Also matches legacy unsharded 'pending' status for backward compatibility
             query_params = {
                 'KeyConditionExpression': 'date_prefix = :prefix',
-                'FilterExpression': '#status = :status',
+                'FilterExpression': 'begins_with(#status, :status_prefix)',
                 'ExpressionAttributeNames': {'#status': 'status'},
                 'ExpressionAttributeValues': {
                     ':prefix': date_prefix,
-                    ':status': 'pending'
+                    ':status_prefix': 'pending'
                 },
                 'Limit': MAX_FILES_PER_MANIFEST + 1
             }
@@ -853,7 +1001,9 @@ def _get_pending_files(date_prefix: str) -> List[Dict]:
                     'size_bytes': int(float(item['file_size_mb']) * 1024 * 1024),
                     'size_mb': float(item['file_size_mb']),
                     'date_prefix': item['date_prefix'],
-                    's3_path': item['file_path']
+                    's3_path': item['file_path'],
+                    'status': item.get('status', 'pending'),
+                    'shard_id': item.get('shard_id', 0)
                 })
 
             # Stop pagination early if we have enough files
@@ -965,9 +1115,131 @@ def _create_manifest(date_prefix: str, batch_idx: int, files: List[Dict]) -> Opt
         return None
 
 
+def _delete_manifest(manifest_path: str):
+    """Delete a manifest file from S3 (cleanup after failed claim)."""
+    try:
+        # Parse bucket and key from s3://bucket/key format
+        parts = manifest_path.replace('s3://', '').split('/', 1)
+        bucket = parts[0]
+        key = parts[1]
+        s3_client.delete_object(Bucket=bucket, Key=key)
+        logger.info(f"🗑️  Deleted unused manifest: {manifest_path}")
+    except Exception as e:
+        logger.error(f"✗ Error deleting manifest {manifest_path}: {str(e)}")
+
+
+def _update_manifest_path(files: List[Dict], manifest_path: str):
+    """Update the manifest_path on already-claimed files (replaces placeholder set during claiming)."""
+    ttl_timestamp = int(time.time()) + (TTL_DAYS * 24 * 60 * 60)
+    updated = 0
+    for file_info in files:
+        try:
+            table.update_item(
+                Key={
+                    'date_prefix': file_info['date_prefix'],
+                    'file_key': file_info['filename']
+                },
+                UpdateExpression='SET manifest_path = :manifest, updated_at = :updated, #ttl = :ttl',
+                ExpressionAttributeNames={'#ttl': 'ttl'},
+                ExpressionAttributeValues={
+                    ':manifest': manifest_path,
+                    ':updated': datetime.now(timezone.utc).isoformat(),
+                    ':ttl': ttl_timestamp
+                }
+            )
+            updated += 1
+        except Exception as e:
+            logger.error(f"✗ Error updating manifest_path for {file_info['filename']}: {str(e)}")
+    logger.info(f"✓ Updated manifest_path on {updated}/{len(files)} claimed files")
+
+
+def publish_manifest_event(manifest_path: str, date_prefix: str, file_count: int) -> bool:
+    """Publish a ManifestReady event via EventBridge or fall back to direct Step Functions.
+
+    Uses circuit breaker pattern to gracefully degrade when EventBridge is unavailable.
+    Falls back to direct Step Functions invocation when EventBridge is not configured.
+
+    Returns:
+        True if event was published successfully, False otherwise.
+    """
+    logger.info("---------- publish_manifest_event -------------")
+
+    # If EventBridge is configured, use it (decoupled approach)
+    if EVENT_BUS_NAME:
+        return _publish_via_eventbridge(manifest_path, date_prefix, file_count)
+
+    # Fall back to direct Step Functions invocation
+    if STEP_FUNCTION_ARN:
+        execution_arn = start_step_function(manifest_path, date_prefix, file_count)
+        return execution_arn is not None
+
+    logger.warning("⚠️  Neither EVENT_BUS_NAME nor STEP_FUNCTION_ARN configured")
+    return True  # No-op success when nothing is configured
+
+
+def _publish_via_eventbridge(manifest_path: str, date_prefix: str, file_count: int) -> bool:
+    """Publish ManifestReady event to EventBridge with circuit breaker protection."""
+
+    if not eventbridge_breaker.can_execute():
+        logger.warning(f"🔌 Circuit breaker OPEN - skipping EventBridge publish, files stay pending")
+        return False
+
+    try:
+        manifest_filename = manifest_path.split('/')[-1]
+        ttl_timestamp = int(time.time()) + (TTL_DAYS * 24 * 60 * 60)
+
+        event_detail = {
+            'manifest_path': manifest_path,
+            'date_prefix': date_prefix,
+            'file_count': file_count,
+            'file_key': f'MANIFEST#{manifest_filename}',
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        }
+
+        response = events_client.put_events(
+            Entries=[{
+                'Source': 'etl.pipeline',
+                'DetailType': 'ManifestReady',
+                'Detail': json.dumps(event_detail),
+                'EventBusName': EVENT_BUS_NAME
+            }]
+        )
+
+        failed_count = response.get('FailedEntryCount', 0)
+        if failed_count > 0:
+            logger.error(f"✗ EventBridge put_events failed: {response['Entries']}")
+            eventbridge_breaker.record_failure()
+            return False
+
+        eventbridge_breaker.record_success()
+        logger.info(f"✓ Published ManifestReady event to EventBridge: {manifest_path}")
+
+        # Write MANIFEST record to DynamoDB for tracking
+        manifest_record = {
+            'date_prefix': date_prefix,
+            'file_key': f'MANIFEST#{manifest_filename}',
+            'status': 'pending',
+            'file_count': file_count,
+            'manifest_path': manifest_path,
+            'trigger_type': 'eventbridge',
+            'created_at': datetime.now(timezone.utc).isoformat(),
+            'ttl': ttl_timestamp
+        }
+        table.put_item(Item=manifest_record)
+        logger.info(f"✓ MANIFEST record created: {date_prefix}/MANIFEST#{manifest_filename}")
+
+        return True
+
+    except Exception as e:
+        logger.error(f"✗ EventBridge publish failed: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        eventbridge_breaker.record_failure()
+        return False
+
+
 def _update_file_status(files: List[Dict], status: str, manifest_path: str):
     logger.info("---------- _update_file_status -------------")
-    """Update file status with logging and refresh TTL."""
+    """Update file status with logging, refresh TTL, and preserve shard suffix."""
     try:
         logger.debug(f"📝 Updating status for {len(files)} files to '{status}'")
 
@@ -977,6 +1249,10 @@ def _update_file_status(files: List[Dict], status: str, manifest_path: str):
         updated = 0
         for file_info in files:
             try:
+                # Preserve shard suffix: pending#3 -> manifested#3 -> processing#3
+                shard_id = file_info.get('shard_id', _compute_shard_id(file_info['filename']))
+                sharded_status = _sharded_status(status, shard_id)
+
                 table.update_item(
                     Key={
                         'date_prefix': file_info['date_prefix'],
@@ -988,7 +1264,7 @@ def _update_file_status(files: List[Dict], status: str, manifest_path: str):
                         '#ttl': 'ttl'
                     },
                     ExpressionAttributeValues={
-                        ':status': status,
+                        ':status': sharded_status,
                         ':manifest': manifest_path,
                         ':updated': datetime.now(timezone.utc).isoformat(),
                         ':ttl': ttl_timestamp

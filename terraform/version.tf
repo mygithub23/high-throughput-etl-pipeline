@@ -17,7 +17,7 @@ terraform {
 
   # Uncomment for remote state management
   backend "s3" {
-    bucket = "tf-backend-<ACCOUNT>"
+    bucket = "tf-backend-804450520964"
     key    = "ndjson-parquet-pipeline/terraform-devtfstate"
     region = "us-east-1"
   }

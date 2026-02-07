@@ -89,6 +89,9 @@ module "dynamodb" {
   # Enable point-in-time recovery for production
   enable_point_in_time_recovery = var.environment == "prod"
 
+  # Phase 3: Enable DynamoDB Streams for event-driven manifest creation
+  enable_streams = var.enable_stream_manifest_creation
+
   tags = local.common_tags
 }
 
@@ -123,6 +126,12 @@ module "iam" {
   step_function_arn = "arn:aws:states:${local.region}:${local.account_id}:stateMachine:ndjson-parquet-processor-${var.environment}"
   glue_job_arn      = "arn:aws:glue:${local.region}:${local.account_id}:job/ndjson-parquet-batch-job-${var.environment}"
   lambda_dlq_arn    = "arn:aws:sqs:${local.region}:${local.account_id}:ndjson-parquet-lambda-dlq-${var.environment}"
+
+  # EventBridge event bus ARN (deterministic, empty if not using EventBridge)
+  event_bus_arn = var.enable_eventbridge_decoupling ? "arn:aws:events:${local.region}:${local.account_id}:event-bus/ndjson-parquet-etl-${var.environment}" : ""
+
+  # Batch status updater Lambda ARN (deterministic to avoid circular dependency with Lambda module)
+  batch_status_updater_arn = "arn:aws:lambda:${local.region}:${local.account_id}:function:ndjson-parquet-batch-status-updater-${var.environment}"
 
   tags = local.common_tags
 }
@@ -159,8 +168,8 @@ module "lambda" {
   # IAM role
   lambda_role_arn = module.iam.lambda_role_arn
 
-  # Scripts bucket for code
-  scripts_bucket_name = module.s3.scripts_bucket_name
+  # Lambda source directory
+  lambda_source_dir = "${path.module}/../environments/${var.environment}/lambda"
 
   # Log retention
   log_retention_days = var.log_retention_days
@@ -177,6 +186,17 @@ module "lambda" {
   # Step Functions ARN for triggering workflow after manifest creation
   # Constructed deterministically to avoid circular dependency with monitoring module
   step_function_arn = "arn:aws:states:${local.region}:${local.account_id}:stateMachine:ndjson-parquet-processor-${var.environment}"
+
+  # Phase 3: EventBridge decoupling
+  event_bus_name       = var.enable_eventbridge_decoupling ? "ndjson-parquet-etl-${var.environment}" : ""
+  eventbridge_role_arn = module.iam.eventbridge_role_arn
+
+  # Phase 3: GSI write-sharding
+  num_status_shards = var.num_status_shards
+
+  # Phase 3: DynamoDB Streams manifest creation
+  enable_stream_manifest_creation = var.enable_stream_manifest_creation
+  file_tracking_table_stream_arn  = var.enable_stream_manifest_creation ? module.dynamodb.file_tracking_table_stream_arn : ""
 
   tags = local.common_tags
 
@@ -390,6 +410,9 @@ module "step_functions" {
 
   # Log retention
   log_retention_days = var.log_retention_days
+
+  # Batch status updater Lambda (deterministic name to avoid circular dependency with Lambda module)
+  batch_status_updater_function_name = "ndjson-parquet-batch-status-updater-${var.environment}"
 
   tags = local.common_tags
 

@@ -98,7 +98,7 @@ resource "aws_iam_role_policy" "lambda" {
           "dynamodb:PutItem",
           "dynamodb:GetItem",
           "dynamodb:UpdateItem",
-          "dynamodb:DeleteItem",  # Required for releasing distributed locks
+          "dynamodb:DeleteItem", # Required for releasing distributed locks
           "dynamodb:Query",
           "dynamodb:Scan"
         ]
@@ -142,6 +142,27 @@ resource "aws_iam_role_policy" "lambda" {
           "sqs:SendMessage"
         ]
         Resource = var.lambda_dlq_arn
+      },
+      # EventBridge permissions (for publishing ManifestReady events)
+      {
+        Effect = "Allow"
+        Action = [
+          "events:PutEvents"
+        ]
+        Resource = var.event_bus_arn != "" ? var.event_bus_arn : "arn:aws:events:*:*:event-bus/default"
+      },
+      # DynamoDB Streams permissions (for stream-triggered manifest creation)
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetRecords",
+          "dynamodb:GetShardIterator",
+          "dynamodb:DescribeStream",
+          "dynamodb:ListStreams"
+        ]
+        Resource = [
+          "${var.file_tracking_table_arn}/stream/*"
+        ]
       }
     ]
   })
@@ -439,6 +460,14 @@ resource "aws_iam_role_policy" "step_functions" {
           "logs:DescribeLogGroups"
         ]
         Resource = "*"
+      },
+      # Lambda permissions - Invoke batch status updater after Glue completes
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:InvokeFunction"
+        ]
+        Resource = var.batch_status_updater_arn
       }
     ]
   })
@@ -485,7 +514,15 @@ resource "aws_iam_role_policy" "eventbridge" {
         Action = [
           "glue:StartJobRun"
         ]
-        Resource = "*"
+        Resource = var.glue_job_arn
+      },
+      # Step Functions permissions (EventBridge -> Step Functions via ManifestReady events)
+      {
+        Effect = "Allow"
+        Action = [
+          "states:StartExecution"
+        ]
+        Resource = var.step_function_arn
       }
     ]
   })

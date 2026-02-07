@@ -68,8 +68,8 @@ variable "size_tolerance_percent" {
   default     = 10
 }
 
-variable "scripts_bucket_name" {
-  description = "S3 bucket containing Lambda code"
+variable "lambda_source_dir" {
+  description = "Path to the directory containing Lambda source .py files"
   type        = string
 }
 
@@ -139,6 +139,36 @@ variable "log_level" {
     condition     = contains(["DEBUG", "INFO", "WARNING", "ERROR"], var.log_level)
     error_message = "log_level must be DEBUG, INFO, WARNING, or ERROR."
   }
+}
+
+variable "event_bus_name" {
+  description = "EventBridge event bus name for ManifestReady events (empty = use direct SF invocation)"
+  type        = string
+  default     = ""
+}
+
+variable "eventbridge_role_arn" {
+  description = "IAM role ARN for EventBridge to start Step Functions"
+  type        = string
+  default     = ""
+}
+
+variable "num_status_shards" {
+  description = "Number of GSI write shards for DynamoDB status partitioning"
+  type        = number
+  default     = 10
+}
+
+variable "enable_stream_manifest_creation" {
+  description = "Enable DynamoDB Streams-based manifest creation (disables polling in Lambda)"
+  type        = bool
+  default     = false
+}
+
+variable "file_tracking_table_stream_arn" {
+  description = "DynamoDB Streams ARN for file tracking table (empty = streams disabled)"
+  type        = string
+  default     = ""
 }
 
 variable "tags" {

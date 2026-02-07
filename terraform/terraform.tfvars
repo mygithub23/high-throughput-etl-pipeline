@@ -56,7 +56,7 @@ glue_timeout             = 2880
 glue_max_retries         = 1 # Allow 1 retry on Glue job failure
 
 # Monitoring Configuration
-alert_email        = ""
+alert_email        = "magzine323@gmail.com"
 log_retention_days = 3
 create_dashboard   = true
 

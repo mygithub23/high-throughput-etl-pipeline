@@ -51,7 +51,7 @@ resource "aws_sfn_state_machine" "processor" {
     StartAt = "UpdateStatusProcessing"
 
     States = {
-      # Step 1: Update DynamoDB status to "processing"
+      # Step 1: Update MANIFEST meta-record status to "processing"
       UpdateStatusProcessing = {
         Type     = "Task"
         Resource = "arn:aws:states:::dynamodb:updateItem"
@@ -59,7 +59,7 @@ resource "aws_sfn_state_machine" "processor" {
           TableName = var.file_tracking_table_name
           Key = {
             "date_prefix" = { "S.$" = "$.date_prefix" }
-            "file_key"    = { "S" = "MANIFEST" }
+            "file_key"    = { "S.$" = "$.file_key" }
           }
           UpdateExpression         = "SET #status = :status, processing_start_time = :start_time, manifest_path = :manifest_path, file_count = :file_count"
           ExpressionAttributeNames = { "#status" = "status" }
@@ -108,7 +108,7 @@ resource "aws_sfn_state_machine" "processor" {
         }]
       }
 
-      # Step 3a: Success - Update status to "completed"
+      # Step 3a: Success - Update MANIFEST meta-record to "completed"
       UpdateStatusCompleted = {
         Type     = "Task"
         Resource = "arn:aws:states:::dynamodb:updateItem"
@@ -127,10 +127,43 @@ resource "aws_sfn_state_machine" "processor" {
           }
         }
         ResultPath = "$.final_update"
-        End        = true
+        Next       = "BatchUpdateCompleted"
       }
 
-      # Step 3b: Failure - Update status to "failed"
+      # Step 3a-2: Success - Batch update individual file records to "completed"
+      BatchUpdateCompleted = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = var.batch_status_updater_function_name
+          Payload = {
+            "manifest_path.$"   = "$.manifest_path"
+            "date_prefix.$"     = "$.date_prefix"
+            "new_status"        = "completed"
+            "glue_job_run_id.$" = "$.glue_result.Id"
+          }
+        }
+        ResultPath = "$.batch_update_result"
+        Next       = "PipelineSucceeded"
+        Retry = [{
+          ErrorEquals     = ["States.TaskFailed", "Lambda.ServiceException", "Lambda.SdkClientException"]
+          IntervalSeconds = 5
+          MaxAttempts     = 2
+          BackoffRate     = 2.0
+        }]
+        Catch = [{
+          ErrorEquals = ["States.ALL"]
+          ResultPath  = "$.batch_update_error"
+          Next        = "PipelineSucceeded"
+        }]
+      }
+
+      # Terminal success state (Glue succeeded; batch update is best-effort)
+      PipelineSucceeded = {
+        Type = "Succeed"
+      }
+
+      # Step 3b: Failure - Update MANIFEST meta-record to "failed"
       UpdateStatusFailed = {
         Type     = "Task"
         Resource = "arn:aws:states:::dynamodb:updateItem"
@@ -149,7 +182,35 @@ resource "aws_sfn_state_machine" "processor" {
           }
         }
         ResultPath = "$.failure_update"
+        Next       = "BatchUpdateFailed"
+      }
+
+      # Step 3b-2: Failure - Batch update individual file records to "failed"
+      BatchUpdateFailed = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = var.batch_status_updater_function_name
+          Payload = {
+            "manifest_path.$" = "$.manifest_path"
+            "date_prefix.$"   = "$.date_prefix"
+            "new_status"      = "failed"
+            "error_message.$" = "States.Format('{}', $.error)"
+          }
+        }
+        ResultPath = "$.batch_update_failed_result"
         Next       = "SendFailureAlert"
+        Retry = [{
+          ErrorEquals     = ["States.TaskFailed", "Lambda.ServiceException", "Lambda.SdkClientException"]
+          IntervalSeconds = 5
+          MaxAttempts     = 2
+          BackoffRate     = 2.0
+        }]
+        Catch = [{
+          ErrorEquals = ["States.ALL"]
+          ResultPath  = "$.batch_update_failed_error"
+          Next        = "SendFailureAlert"
+        }]
       }
 
       # Step 4: Send SNS notification on failure

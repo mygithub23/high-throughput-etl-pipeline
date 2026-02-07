@@ -67,6 +67,17 @@ variable "lambda_dlq_arn" {
   type        = string
 }
 
+variable "event_bus_arn" {
+  description = "EventBridge event bus ARN for ManifestReady events"
+  type        = string
+  default     = ""
+}
+
+variable "batch_status_updater_arn" {
+  description = "Batch status updater Lambda ARN (invoked by Step Functions after Glue)"
+  type        = string
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

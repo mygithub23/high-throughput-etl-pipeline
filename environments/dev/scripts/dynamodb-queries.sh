@@ -145,8 +145,9 @@ count_by_status() {
     echo -e "${GREEN}File counts by status:${NC}"
     echo ""
 
+    # Use begins_with to match sharded statuses (e.g. pending#0 .. pending#9)
     for status in pending manifested processing completed failed; do
-        query="SELECT * FROM \"${TABLE_NAME}\" WHERE status='${status}'"
+        query="SELECT * FROM \"${TABLE_NAME}\" WHERE begins_with(status, '${status}')"
         count=$(aws dynamodb execute-statement \
             --statement "$query" \
             --region "$REGION" \
@@ -208,19 +209,19 @@ for item in data.get('Items', []):
 # Main command handler
 case "${1:-help}" in
     pending)
-        run_partiql_table "SELECT * FROM \"${TABLE_NAME}\" WHERE status='pending'"
+        run_partiql_table "SELECT * FROM \"${TABLE_NAME}\" WHERE begins_with(status, 'pending')"
         ;;
     manifested)
-        run_partiql_table "SELECT * FROM \"${TABLE_NAME}\" WHERE status='manifested'"
+        run_partiql_table "SELECT * FROM \"${TABLE_NAME}\" WHERE begins_with(status, 'manifested')"
         ;;
     processing)
-        run_partiql_table "SELECT * FROM \"${TABLE_NAME}\" WHERE status='processing'"
+        run_partiql_table "SELECT * FROM \"${TABLE_NAME}\" WHERE begins_with(status, 'processing')"
         ;;
     completed)
-        run_partiql_table "SELECT * FROM \"${TABLE_NAME}\" WHERE status='completed'"
+        run_partiql_table "SELECT * FROM \"${TABLE_NAME}\" WHERE begins_with(status, 'completed')"
         ;;
     failed)
-        run_partiql_table "SELECT * FROM \"${TABLE_NAME}\" WHERE status='failed'"
+        run_partiql_table "SELECT * FROM \"${TABLE_NAME}\" WHERE begins_with(status, 'failed')"
         ;;
     status)
         count_by_status
@@ -233,10 +234,10 @@ case "${1:-help}" in
         run_partiql_table "SELECT * FROM \"${TABLE_NAME}\" WHERE date_prefix='$2'"
         ;;
     manifests)
-        run_partiql "SELECT * FROM \"${TABLE_NAME}\" WHERE file_key='MANIFEST'"
+        run_partiql "SELECT * FROM \"${TABLE_NAME}\" WHERE begins_with(file_key, 'MANIFEST#')"
         ;;
     locks)
-        run_partiql "SELECT * FROM \"${TABLE_NAME}\" WHERE begins_with(file_key, 'LOCK')"
+        run_partiql "SELECT * FROM \"${TABLE_NAME}\" WHERE begins_with(file_key, 'LOCK#')"
         ;;
     recent)
         limit=${2:-20}
@@ -249,6 +250,49 @@ case "${1:-help}" in
             exit 1
         fi
         delete_by_date "$2"
+        ;;
+    delete-status)
+        if [ -z "$2" ]; then
+            echo "Usage: $0 delete-status <status>"
+            echo "  e.g. $0 delete-status failed"
+            echo "  Matches sharded values too (failed#0, failed#1, ...)"
+            exit 1
+        fi
+        target_status="$2"
+        echo -e "${RED}WARNING: This will delete ALL records with status beginning with: ${target_status}${NC}"
+        read -p "Are you sure? (type 'yes' to confirm): " confirm
+
+        if [ "$confirm" != "yes" ]; then
+            echo "Aborted."
+            exit 0
+        fi
+
+        echo "Finding records..."
+        keys=$(aws dynamodb execute-statement \
+            --statement "SELECT date_prefix, file_key FROM \"${TABLE_NAME}\" WHERE begins_with(status, '${target_status}')" \
+            --region "$REGION" \
+            --output json | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for item in data.get('Items', []):
+    dp = item['date_prefix']['S']
+    fk = item['file_key']['S']
+    print(f'{dp}|{fk}')
+")
+
+        count=0
+        while IFS='|' read -r dp fk; do
+            if [ -n "$dp" ] && [ -n "$fk" ]; then
+                echo "  Deleting: $dp / $fk"
+                aws dynamodb delete-item \
+                    --table-name "$TABLE_NAME" \
+                    --key "{\"date_prefix\": {\"S\": \"$dp\"}, \"file_key\": {\"S\": \"$fk\"}}" \
+                    --region "$REGION"
+                ((count++))
+            fi
+        done <<< "$keys"
+
+        echo -e "${GREEN}Deleted $count records${NC}"
         ;;
     cleanup-locks)
         echo "Finding expired LOCK records..."
