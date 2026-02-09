@@ -4,8 +4,8 @@
 # Shows comprehensive status of all pipeline components
 #
 # Usage:
-#   ./pipeline-status.sh              # Full status
-#   ./pipeline-status.sh --quick      # Quick summary only
+# ./pipeline-status.sh # Full status
+# ./pipeline-status.sh --quick # Quick summary only
 
 set -e
 
@@ -36,13 +36,13 @@ NC='\033[0m'
 TODAY=$(date +%Y-%m-%d)
 
 echo -e "${BOLD}${GREEN}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}${GREEN}║           NDJSON to Parquet Pipeline Status                    ║${NC}"
+echo -e "${BOLD}${GREEN}║ NDJSON to Parquet Pipeline Status ║${NC}"
 echo -e "${BOLD}${GREEN}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${CYAN}Environment:${NC} $ENV"
-echo -e "${CYAN}Account:${NC}     $AWS_ACCOUNT_ID"
-echo -e "${CYAN}Region:${NC}      $REGION"
-echo -e "${CYAN}Date:${NC}        $TODAY"
+echo -e "${CYAN}Account:${NC} $AWS_ACCOUNT_ID"
+echo -e "${CYAN}Region:${NC} $REGION"
+echo -e "${CYAN}Date:${NC} $TODAY"
 echo ""
 
 # Quick mode check
@@ -55,7 +55,7 @@ fi
 # S3 BUCKETS
 #############################################################################
 echo -e "${BOLD}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BOLD}│ S3 BUCKETS                                                      │${NC}"
+echo -e "${BOLD}│ S3 BUCKETS │${NC}"
 echo -e "${BOLD}└─────────────────────────────────────────────────────────────────┘${NC}"
 
 for bucket_info in \
@@ -74,7 +74,7 @@ for bucket_info in \
         size=$(aws s3 ls "s3://${bucket}/" --recursive --summarize --region "$REGION" 2>/dev/null | grep "Total Size" | awk '{print $3, $4}' || echo "0 Bytes")
     fi
 
-    printf "  %-12s %6s files  %s\n" "$label:" "$count" "$size"
+    printf " %-12s %6s files %s\n" "$label:" "$count" "$size"
 done
 echo ""
 
@@ -82,7 +82,7 @@ echo ""
 # DYNAMODB
 #############################################################################
 echo -e "${BOLD}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BOLD}│ DYNAMODB FILE TRACKING                                          │${NC}"
+echo -e "${BOLD}│ DYNAMODB FILE TRACKING │${NC}"
 echo -e "${BOLD}└─────────────────────────────────────────────────────────────────┘${NC}"
 
 # Status counts
@@ -93,14 +93,14 @@ for status in pending manifested processing completed failed; do
         --output json 2>/dev/null | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('Items',[])))" || echo "0")
 
     case $status in
-        pending)    color=$YELLOW; icon="⏳" ;;
-        manifested) color=$CYAN;   icon="📋" ;;
-        processing) color=$YELLOW; icon="⚙️" ;;
-        completed)  color=$GREEN;  icon="✅" ;;
-        failed)     color=$RED;    icon="❌" ;;
+        pending) color=$YELLOW; icon="" ;;
+        manifested) color=$CYAN; icon="" ;;
+        processing) color=$YELLOW; icon="" ;;
+        completed) color=$GREEN; icon="" ;;
+        failed) color=$RED; icon="" ;;
     esac
 
-    printf "  ${color}%-12s${NC} %6s  %s\n" "$status:" "$count" "$icon"
+    printf " ${color}%-12s${NC} %6s %s\n" "$status:" "$count" "$icon"
 done
 
 # Today's count
@@ -109,14 +109,14 @@ today_count=$(aws dynamodb execute-statement \
     --region "$REGION" \
     --output json 2>/dev/null | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('Items',[])))" || echo "0")
 echo ""
-echo -e "  ${CYAN}Today (${TODAY}):${NC} $today_count records"
+echo -e " ${CYAN}Today (${TODAY}):${NC} $today_count records"
 echo ""
 
 #############################################################################
 # SQS QUEUE
 #############################################################################
 echo -e "${BOLD}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BOLD}│ SQS QUEUE                                                       │${NC}"
+echo -e "${BOLD}│ SQS QUEUE │${NC}"
 echo -e "${BOLD}└─────────────────────────────────────────────────────────────────┘${NC}"
 
 QUEUE_URL=$(aws sqs get-queue-url --queue-name "$QUEUE_NAME" --region "$REGION" --query 'QueueUrl' --output text 2>/dev/null || echo "")
@@ -132,11 +132,11 @@ if [ -n "$QUEUE_URL" ]; then
     in_flight=$(echo "$attrs" | python3 -c "import sys,json; print(json.load(sys.stdin)['Attributes'].get('ApproximateNumberOfMessagesNotVisible', '0'))")
     delayed=$(echo "$attrs" | python3 -c "import sys,json; print(json.load(sys.stdin)['Attributes'].get('ApproximateNumberOfMessagesDelayed', '0'))")
 
-    echo "  Messages available:  $visible"
-    echo "  Messages in-flight:  $in_flight"
-    echo "  Messages delayed:    $delayed"
+    echo " Messages available: $visible"
+    echo " Messages in-flight: $in_flight"
+    echo " Messages delayed: $delayed"
 else
-    echo -e "  ${RED}Queue not found${NC}"
+    echo -e " ${RED}Queue not found${NC}"
 fi
 echo ""
 
@@ -144,7 +144,7 @@ echo ""
 # LAMBDA
 #############################################################################
 echo -e "${BOLD}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BOLD}│ LAMBDA FUNCTION                                                 │${NC}"
+echo -e "${BOLD}│ LAMBDA FUNCTION │${NC}"
 echo -e "${BOLD}└─────────────────────────────────────────────────────────────────┘${NC}"
 
 lambda_config=$(aws lambda get-function-configuration \
@@ -159,13 +159,13 @@ if [ "$lambda_config" != "{}" ]; then
     last_modified=$(echo "$lambda_config" | python3 -c "import sys,json; print(json.load(sys.stdin).get('LastModified', 'N/A')[:19])")
 
     if [ "$state" == "Active" ]; then
-        echo -e "  State:         ${GREEN}$state${NC}"
+        echo -e " State: ${GREEN}$state${NC}"
     else
-        echo -e "  State:         ${RED}$state${NC}"
+        echo -e " State: ${RED}$state${NC}"
     fi
-    echo "  Memory:        ${memory} MB"
-    echo "  Timeout:       ${timeout}s"
-    echo "  Last Modified: $last_modified"
+    echo " Memory: ${memory} MB"
+    echo " Timeout: ${timeout}s"
+    echo " Last Modified: $last_modified"
 
     # Check event source mapping
     esm_state=$(aws lambda list-event-source-mappings \
@@ -175,12 +175,12 @@ if [ "$lambda_config" != "{}" ]; then
         --output text 2>/dev/null || echo "Unknown")
 
     if [ "$esm_state" == "Enabled" ]; then
-        echo -e "  SQS Trigger:   ${GREEN}Enabled${NC}"
+        echo -e " SQS Trigger: ${GREEN}Enabled${NC}"
     else
-        echo -e "  SQS Trigger:   ${RED}$esm_state${NC}"
+        echo -e " SQS Trigger: ${RED}$esm_state${NC}"
     fi
 else
-    echo -e "  ${RED}Lambda not found${NC}"
+    echo -e " ${RED}Lambda not found${NC}"
 fi
 echo ""
 
@@ -188,7 +188,7 @@ echo ""
 # STEP FUNCTIONS
 #############################################################################
 echo -e "${BOLD}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BOLD}│ STEP FUNCTIONS                                                  │${NC}"
+echo -e "${BOLD}│ STEP FUNCTIONS │${NC}"
 echo -e "${BOLD}└─────────────────────────────────────────────────────────────────┘${NC}"
 
 SM_ARN=$(aws stepfunctions list-state-machines --region "$REGION" \
@@ -203,15 +203,15 @@ if [ -n "$SM_ARN" ]; then
             --output json 2>/dev/null | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('executions',[])))" || echo "0")
 
         case $status in
-            RUNNING)   color=$YELLOW ;;
+            RUNNING) color=$YELLOW ;;
             SUCCEEDED) color=$GREEN ;;
-            FAILED)    color=$RED ;;
+            FAILED) color=$RED ;;
         esac
 
-        printf "  ${color}%-12s${NC} %6s\n" "$status:" "$count"
+        printf " ${color}%-12s${NC} %6s\n" "$status:" "$count"
     done
 else
-    echo -e "  ${RED}State machine not found${NC}"
+    echo -e " ${RED}State machine not found${NC}"
 fi
 echo ""
 
@@ -219,7 +219,7 @@ echo ""
 # GLUE JOB
 #############################################################################
 echo -e "${BOLD}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BOLD}│ GLUE JOB                                                        │${NC}"
+echo -e "${BOLD}│ GLUE JOB │${NC}"
 echo -e "${BOLD}└─────────────────────────────────────────────────────────────────┘${NC}"
 
 glue_runs=$(aws glue get-job-runs \
@@ -237,7 +237,7 @@ data = json.load(sys.stdin)
 runs = data.get('JobRuns', [])
 
 if not runs:
-    print('  No job runs found')
+    print(' No job runs found')
     sys.exit(0)
 
 status_counts = Counter(r['JobRunState'] for r in runs)
@@ -252,16 +252,16 @@ NC = '\033[0m'
 for status in ['RUNNING', 'SUCCEEDED', 'FAILED']:
     count = status_counts.get(status, 0)
     color = colors.get(status, '')
-    print(f'  {color}{status}:{NC}      {count:>4}')
+    print(f' {color}{status}:{NC} {count:>4}')
 
 # Latest run
 if runs:
     latest = runs[0]
     print()
-    print(f\"  Latest run: {latest['JobRunState']} ({latest.get('ExecutionTime', 0)}s)\")
+    print(f\" Latest run: {latest['JobRunState']} ({latest.get('ExecutionTime', 0)}s)\")
 "
 else
-    echo -e "  ${RED}Glue job not found${NC}"
+    echo -e " ${RED}Glue job not found${NC}"
 fi
 echo ""
 
@@ -270,14 +270,14 @@ echo ""
 #############################################################################
 if [ "$QUICK_MODE" != "true" ]; then
     echo -e "${BOLD}┌─────────────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${BOLD}│ QUICK COMMANDS                                                  │${NC}"
+    echo -e "${BOLD}│ QUICK COMMANDS │${NC}"
     echo -e "${BOLD}└─────────────────────────────────────────────────────────────────┘${NC}"
     echo ""
-    echo "  DynamoDB queries:     ./dynamodb-queries.sh status"
-    echo "  Step Functions:       ./stepfunctions-queries.sh list"
-    echo "  Glue jobs:            ./glue-queries.sh list"
-    echo "  Generate test data:   ./generate-test-files.sh 10 1 --upload"
-    echo "  Cleanup:              ./cleanup-pipeline.sh status"
+    echo " DynamoDB queries: ./dynamodb-queries.sh status"
+    echo " Step Functions: ./stepfunctions-queries.sh list"
+    echo " Glue jobs: ./glue-queries.sh list"
+    echo " Generate test data: ./generate-test-files.sh 10 1 --upload"
+    echo " Cleanup: ./cleanup-pipeline.sh status"
     echo ""
 fi
 

@@ -6,12 +6,12 @@
 # 2. Be at least 100KB (0.1 MB) to pass size validation
 # 3. Be NDJSON format (one JSON object per line)
 #
-# ⚠️ IMPORTANT: Always use UTC dates to match Lambda's timezone!
+# IMPORTANT: Always use UTC dates to match Lambda's timezone!
 # Lambda uses UTC to determine "today" for orphan detection.
 
 set -e
 
-DATE=$(date -u +%Y-%m-%d)  # ⚠️ CRITICAL: Use UTC (-u flag) to match Lambda's timezone
+DATE=$(date -u +%Y-%m-%d) # CRITICAL: Use UTC (-u flag) to match Lambda's timezone
 TIMESTAMP=$(date -u +%H%M%S)
 UUID=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$(date +%s)-$(( RANDOM % 10000 ))")
 
@@ -26,7 +26,7 @@ for i in {1..10}; do
     # Each line is ~150 bytes, so 1000 lines = ~150KB
     echo -n "Creating $FILENAME (150KB)... "
     
-    > "$FILENAME"  # Create empty file
+    > "$FILENAME" # Create empty file
     for j in {1..1000}; do
         echo "{\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\",\"test_id\":$i,\"record_id\":$j,\"data\":\"This is test data with some padding to reach the right size per line for validation\"}" >> "$FILENAME"
     done
@@ -37,10 +37,10 @@ for i in {1..10}; do
 done
 
 echo ""
-echo "✓ Created 10 test files with correct format and size"
+echo "Created 10 test files with correct format and size"
 echo ""
 echo "Files created:"
-ls -lh ${DATE}-test*.ndjson 2>/dev/null | awk '{print "  " $9 " - " $5}'
+ls -lh ${DATE}-test*.ndjson 2>/dev/null | awk '{print " " $9 " - " $5}'
 echo ""
 echo "To upload these files, run:"
-echo "  aws s3 cp . s3://ndjson-input-sqs-<ACCOUNT>-dev/pipeline/input/ --recursive --exclude '*' --include '${DATE}-test*.ndjson'"
+echo " aws s3 cp . s3://ndjson-input-sqs-<ACCOUNT>-dev/pipeline/input/ --recursive --exclude '*' --include '${DATE}-test*.ndjson'"

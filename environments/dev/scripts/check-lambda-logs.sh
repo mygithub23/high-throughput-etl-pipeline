@@ -22,9 +22,9 @@ echo ""
 echo -e "${YELLOW}Verifying Lambda exists...${NC}"
 aws lambda get-function --function-name "$LAMBDA_NAME" --region $REGION > /dev/null 2>&1
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Lambda found${NC}"
+    echo -e "${GREEN}Lambda found${NC}"
 else
-    echo -e "${RED}✗ Lambda not found!${NC}"
+    echo -e "${RED}Lambda not found!${NC}"
     exit 1
 fi
 echo ""
@@ -57,9 +57,9 @@ if [ -z "$LOG_STREAMS" ]; then
     echo "This means the Lambda has never been invoked."
     echo ""
     echo "Check:"
-    echo "  1. SQS queue has messages?"
-    echo "  2. Lambda has SQS trigger configured?"
-    echo "  3. Lambda has correct permissions?"
+    echo " 1. SQS queue has messages?"
+    echo " 2. Lambda has SQS trigger configured?"
+    echo " 3. Lambda has correct permissions?"
     exit 1
 fi
 
@@ -97,4 +97,4 @@ echo ""
 echo -e "${GREEN}Log check complete${NC}"
 echo ""
 echo "To tail logs in real-time:"
-echo "  aws logs tail $LOG_GROUP --follow --region $REGION"
+echo " aws logs tail $LOG_GROUP --follow --region $REGION"

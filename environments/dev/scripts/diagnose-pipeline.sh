@@ -22,16 +22,16 @@ echo ""
 # Check all buckets
 echo -e "${YELLOW}1. S3 Buckets:${NC}"
 echo "Input bucket:"
-aws s3 ls s3://ndjson-input-sqs-${AWS_ACCOUNT_ID}/ --region $REGION --recursive | wc -l | xargs echo "  Files:"
+aws s3 ls s3://ndjson-input-sqs-${AWS_ACCOUNT_ID}/ --region $REGION --recursive | wc -l | xargs echo " Files:"
 
 echo "Manifest bucket:"
-aws s3 ls s3://ndjson-manifests-${AWS_ACCOUNT_ID}/ --region $REGION --recursive | wc -l | xargs echo "  Files:"
+aws s3 ls s3://ndjson-manifests-${AWS_ACCOUNT_ID}/ --region $REGION --recursive | wc -l | xargs echo " Files:"
 
 echo "Output bucket:"
-aws s3 ls s3://ndjson-parquet-output-${AWS_ACCOUNT_ID}/ --region $REGION --recursive | wc -l | xargs echo "  Files:"
+aws s3 ls s3://ndjson-parquet-output-${AWS_ACCOUNT_ID}/ --region $REGION --recursive | wc -l | xargs echo " Files:"
 
 echo "Quarantine bucket:"
-aws s3 ls s3://ndjson-quarantine-${AWS_ACCOUNT_ID}/ --region $REGION --recursive 2>/dev/null | wc -l | xargs echo "  Files:" || echo "  Bucket doesn't exist"
+aws s3 ls s3://ndjson-quarantine-${AWS_ACCOUNT_ID}/ --region $REGION --recursive 2>/dev/null | wc -l | xargs echo " Files:" || echo " Bucket doesn't exist"
 
 echo ""
 
@@ -44,7 +44,7 @@ aws dynamodb query \
   --expression-attribute-values "{\":date\":{\"S\":\"$DATE_PREFIX\"}}" \
   --region $REGION \
   --select COUNT \
-  --output json | python -c "import sys, json; print('  Files tracked today:', json.load(sys.stdin)['Count'])"
+  --output json | python -c "import sys, json; print(' Files tracked today:', json.load(sys.stdin)['Count'])"
 
 echo ""
 
@@ -101,7 +101,7 @@ echo ""
 echo -e "${GREEN}=== Diagnostics Complete ===${NC}"
 echo ""
 echo "Summary of potential issues:"
-echo "  - Check if manifest bucket has files"
-echo "  - Check if Lambda is being invoked (event source mapping state)"
-echo "  - Check if SQS has messages waiting"
-echo "  - Check Glue job error messages"
+echo " - Check if manifest bucket has files"
+echo " - Check if Lambda is being invoked (event source mapping state)"
+echo " - Check if SQS has messages waiting"
+echo " - Check Glue job error messages"

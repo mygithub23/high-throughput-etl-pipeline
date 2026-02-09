@@ -17,7 +17,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo -e "${CYAN}========================================${NC}"
-echo -e "${CYAN}   LOCK Record Diagnostic Tool${NC}"
+echo -e "${CYAN} LOCK Record Diagnostic Tool${NC}"
 echo -e "${CYAN}========================================${NC}"
 echo ""
 
@@ -39,7 +39,7 @@ items = data.get('Items', [])
 current_time = $CURRENT_TIME
 
 if not items:
-    print('✓ No LOCK records found - pipeline is healthy')
+    print('No LOCK records found - pipeline is healthy')
     sys.exit(0)
 
 print(f'Found {len(items)} LOCK record(s):')
@@ -61,28 +61,28 @@ for i, item in enumerate(items, 1):
     is_expired = time_remaining <= 0
 
     print(f'{i}. Lock Date: {lock_date}')
-    print(f'   Lock Owner: {lock_owner}')
-    print(f'   TTL: {ttl} ({datetime.fromtimestamp(ttl).strftime(\"%Y-%m-%d %H:%M:%S\")})')
-    print(f'   Current Time: {current_time} ({datetime.fromtimestamp(current_time).strftime(\"%Y-%m-%d %H:%M:%S\")})')
+    print(f' Lock Owner: {lock_owner}')
+    print(f' TTL: {ttl} ({datetime.fromtimestamp(ttl).strftime(\"%Y-%m-%d %H:%M:%S\")})')
+    print(f' Current Time: {current_time} ({datetime.fromtimestamp(current_time).strftime(\"%Y-%m-%d %H:%M:%S\")})')
 
     if is_expired:
-        print(f'   ⚠️  Status: EXPIRED ({abs(time_remaining)} seconds ago)')
-        print(f'   Action: Should be auto-deleted by DynamoDB TTL (may take up to 48 hours)')
+        print(f' Status: EXPIRED ({abs(time_remaining)} seconds ago)')
+        print(f' Action: Should be auto-deleted by DynamoDB TTL (may take up to 48 hours)')
         stuck_locks.append((date_prefix, file_key))
     else:
-        print(f'   ✓ Status: Active ({time_remaining} seconds remaining)')
+        print(f' Status: Active ({time_remaining} seconds remaining)')
     print()
 
 if stuck_locks:
     print('='*50)
-    print('⚠️  STUCK LOCKS DETECTED')
+    print('STUCK LOCKS DETECTED')
     print('='*50)
     print()
     print('Expired locks found. While DynamoDB TTL will eventually delete these,')
     print('you can manually clear them now to resume pipeline operation.')
     print()
     print('To clear stuck locks, run:')
-    print(f'  bash {sys.argv[0]} --clear-expired')
+    print(f' bash {sys.argv[0]} --clear-expired')
     print()
 "
 
@@ -104,15 +104,15 @@ data = json.load(sys.stdin)
 count = data.get('Count', 0)
 print(f'Total pending files: {count}')
 if count >= 10:
-    print('⚠️  Enough files for manifest creation (threshold: 10)')
-    print('   If LOCK is stuck, these files cannot be processed')
+    print('Enough files for manifest creation (threshold: 10)')
+    print(' If LOCK is stuck, these files cannot be processed')
 "
 echo ""
 
 # 3. Check if --clear-expired flag was passed
 if [ "$1" == "--clear-expired" ]; then
     echo -e "${RED}========================================${NC}"
-    echo -e "${RED}   Clearing Expired LOCK Records${NC}"
+    echo -e "${RED} Clearing Expired LOCK Records${NC}"
     echo -e "${RED}========================================${NC}"
     echo ""
 
@@ -154,16 +154,16 @@ for item in items:
 
         result = subprocess.run(cmd, capture_output=True)
         if result.returncode == 0:
-            print(f'  ✓ Deleted successfully')
+            print(f' Deleted successfully')
             expired_count += 1
         else:
-            print(f'  ✗ Failed: {result.stderr.decode()}')
+            print(f' Failed: {result.stderr.decode()}')
 
 if expired_count == 0:
     print('No expired locks to clear')
 else:
     print()
-    print(f'✓ Cleared {expired_count} expired LOCK record(s)')
+    print(f'Cleared {expired_count} expired LOCK record(s)')
     print()
     print('Pipeline should now resume processing pending files.')
     print('Monitor with: bash trace-pipeline.sh')

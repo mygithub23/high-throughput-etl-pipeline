@@ -67,7 +67,7 @@ class ManifestProcessor:
             'records_processed': 0,
             'errors': 0,
             'start_time': datetime.now(timezone.utc).isoformat(),
-            'parquet_files_created': [],  # Track output files for metadata
+            'parquet_files_created': [], # Track output files for metadata
             'manifest_processed': None
         }
 
@@ -301,7 +301,7 @@ def upload_glue_metadata_report(
 
 def main():
     """Main entry point - BATCH MODE ONLY."""
-    execution_start_time = time.time()  # Track execution time
+    execution_start_time = time.time() # Track execution time
 
     # Parse ALL required arguments (including MANIFEST_PATH)
     args = getResolvedOptions(
@@ -311,12 +311,12 @@ def main():
             'MANIFEST_BUCKET',
             'OUTPUT_BUCKET',
             'COMPRESSION_TYPE',
-            'MANIFEST_PATH'  # NOW REQUIRED
+            'MANIFEST_PATH' # NOW REQUIRED
         ]
     )
 
     manifest_path = args['MANIFEST_PATH']
-    output_prefix = args.get('OUTPUT_PREFIX', '')  # Optional prefix
+    output_prefix = args.get('OUTPUT_PREFIX', '') # Optional prefix
     job_name = args['JOB_NAME']
 
     # Initialize Glue context

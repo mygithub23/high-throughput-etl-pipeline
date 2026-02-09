@@ -22,7 +22,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 echo -e "${CYAN}========================================${NC}"
-echo -e "${CYAN}   Pipeline Full Trace & Correlation${NC}"
+echo -e "${CYAN} Pipeline Full Trace & Correlation${NC}"
 echo -e "${CYAN}========================================${NC}"
 echo ""
 
@@ -42,7 +42,7 @@ counts = Counter(statuses)
 
 print(f'Total records: {len(items)}')
 for status, count in sorted(counts.items()):
-    print(f'  {status}: {count}')
+    print(f' {status}: {count}')
 "
 echo ""
 
@@ -74,11 +74,11 @@ for i, item in enumerate(items, 1):
 
     print(f'{i}. Date: {date}, Status: {status}')
     if job_id != 'N/A':
-        print(f'   Glue Job ID: {job_id}')
+        print(f' Glue Job ID: {job_id}')
     if completed != 'N/A':
-        print(f'   Completed: {completed}')
+        print(f' Completed: {completed}')
     if error != 'N/A':
-        print(f'   Error: {error}')
+        print(f' Error: {error}')
     print()
 "
 echo ""
@@ -126,7 +126,7 @@ statuses = Counter(ex['status'] for ex in executions)
 
 print(f'Total executions: {len(executions)}')
 for status, count in sorted(statuses.items()):
-    print(f'  {status}: {count}')
+    print(f' {status}: {count}')
 
 print()
 print('Recent executions:')
@@ -134,7 +134,7 @@ for ex in executions[:10]:
     name = ex.get('name', 'N/A')
     status = ex.get('status', 'N/A')
     start = ex.get('startDate', 'N/A')
-    print(f'  {name}: {status} (started: {start})')
+    print(f' {name}: {status} (started: {start})')
 "
 echo ""
 
@@ -155,7 +155,7 @@ for line in sys.stdin:
     if len(parts) >= 2:
         count = parts[0]
         date = parts[1]
-        print(f'  {date}: {count} manifest(s) = {int(count) * 10} files (at 10 files per manifest)')
+        print(f' {date}: {count} manifest(s) = {int(count) * 10} files (at 10 files per manifest)')
 print()
 "
 
@@ -171,7 +171,7 @@ for line in sys.stdin:
     if len(parts) >= 2:
         count = parts[0]
         date = parts[1]
-        print(f'  {date}: {count} parquet file(s)')
+        print(f' {date}: {count} parquet file(s)')
 print()
 " || echo "No parquet files found"
 
@@ -179,15 +179,15 @@ print()
 echo -e "${CYAN}7. Diagnostic Recommendations${NC}"
 echo ""
 echo "If manifests > parquet files:"
-echo "  → Step Functions or Glue jobs failed"
-echo "  → Check: aws stepfunctions list-executions --state-machine-arn $STATE_MACHINE_ARN --status-filter FAILED"
+echo " -> Step Functions or Glue jobs failed"
+echo " -> Check: aws stepfunctions list-executions --state-machine-arn $STATE_MACHINE_ARN --status-filter FAILED"
 echo ""
 echo "If many files are 'manifested' but few MANIFEST records are 'completed':"
-echo "  → Step Functions UpdateStatusCompleted is failing"
-echo "  → Check Step Functions execution history for errors"
+echo " -> Step Functions UpdateStatusCompleted is failing"
+echo " -> Check Step Functions execution history for errors"
 echo ""
 echo "If files stuck in 'pending':"
-echo "  → Lambda retry loop isn't working or lock contention"
-echo "  → Check Lambda logs for 'Lock contention' or 'Max retries reached'"
+echo " -> Lambda retry loop isn't working or lock contention"
+echo " -> Check Lambda logs for 'Lock contention' or 'Max retries reached'"
 echo ""
 echo -e "${CYAN}========================================${NC}"

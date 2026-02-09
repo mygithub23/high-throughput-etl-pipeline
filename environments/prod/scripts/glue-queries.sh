@@ -17,7 +17,7 @@ RED='\033[0;31m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${RED}⚠️  PRODUCTION ENVIRONMENT${NC}"
+echo -e "${RED}PRODUCTION ENVIRONMENT${NC}"
 echo ""
 
 show_help() {
@@ -28,15 +28,15 @@ show_help() {
     echo "Usage: $0 <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  list [N]              List N most recent job runs (default: 10)"
-    echo "  running               Show currently running jobs"
-    echo "  succeeded             Show succeeded jobs"
-    echo "  failed                Show failed jobs"
-    echo "  details <run-id>      Show detailed job run info"
-    echo "  logs <run-id>         Show CloudWatch logs for a job run"
-    echo "  errors                Show error messages from recent failures"
-    echo "  stats                 Show job run statistics"
-    echo "  config                Show job configuration"
+    echo " list [N] List N most recent job runs (default: 10)"
+    echo " running Show currently running jobs"
+    echo " succeeded Show succeeded jobs"
+    echo " failed Show failed jobs"
+    echo " details <run-id> Show detailed job run info"
+    echo " logs <run-id> Show CloudWatch logs for a job run"
+    echo " errors Show error messages from recent failures"
+    echo " stats Show job run statistics"
+    echo " config Show job configuration"
     echo ""
 }
 
@@ -109,10 +109,10 @@ if not runs:
 
 for run in runs:
     print(f\"Run ID: {run['Id']}\")
-    print(f\"  Started: {run.get('StartedOn', 'N/A')}\")
-    print(f\"  Duration: {run.get('ExecutionTime', 0)}s\")
+    print(f\" Started: {run.get('StartedOn', 'N/A')}\")
+    print(f\" Duration: {run.get('ExecutionTime', 0)}s\")
     if run['JobRunState'] == 'FAILED':
-        print(f\"  Error: {run.get('ErrorMessage', 'N/A')[:100]}...\")
+        print(f\" Error: {run.get('ErrorMessage', 'N/A')[:100]}...\")
     print()
 "
 }
@@ -130,25 +130,25 @@ import sys, json
 data = json.load(sys.stdin)
 run = data.get('JobRun', {})
 
-print(f\"Run ID:          {run.get('Id', 'N/A')}\")
-print(f\"Status:          {run.get('JobRunState', 'N/A')}\")
-print(f\"Started:         {run.get('StartedOn', 'N/A')}\")
-print(f\"Completed:       {run.get('CompletedOn', 'N/A')}\")
-print(f\"Execution Time:  {run.get('ExecutionTime', 0)} seconds\")
-print(f\"Workers:         {run.get('NumberOfWorkers', 'N/A')}\")
-print(f\"Worker Type:     {run.get('WorkerType', 'N/A')}\")
+print(f\"Run ID: {run.get('Id', 'N/A')}\")
+print(f\"Status: {run.get('JobRunState', 'N/A')}\")
+print(f\"Started: {run.get('StartedOn', 'N/A')}\")
+print(f\"Completed: {run.get('CompletedOn', 'N/A')}\")
+print(f\"Execution Time: {run.get('ExecutionTime', 0)} seconds\")
+print(f\"Workers: {run.get('NumberOfWorkers', 'N/A')}\")
+print(f\"Worker Type: {run.get('WorkerType', 'N/A')}\")
 print()
 
 args = run.get('Arguments', {})
 if args:
     print('Arguments:')
     for k, v in args.items():
-        print(f'  {k}: {v}')
+        print(f' {k}: {v}')
 
 if run.get('JobRunState') == 'FAILED':
     print()
     print('Error Message:')
-    print(f\"  {run.get('ErrorMessage', 'N/A')}\")
+    print(f\" {run.get('ErrorMessage', 'N/A')}\")
 "
 }
 
@@ -172,8 +172,8 @@ if not failed:
 
 for run in failed:
     print(f\"Run ID: {run['Id']}\")
-    print(f\"  Started: {run.get('StartedOn', 'N/A')}\")
-    print(f\"  Error: {run.get('ErrorMessage', 'No error message')}\")
+    print(f\" Started: {run.get('StartedOn', 'N/A')}\")
+    print(f\" Error: {run.get('ErrorMessage', 'No error message')}\")
     print()
 "
 }
@@ -210,14 +210,14 @@ NC = '\033[0m'
 print('Status Counts:')
 for status, count in status_counts.most_common():
     color = colors.get(status, '')
-    print(f'  {color}{status}{NC}: {count}')
+    print(f' {color}{status}{NC}: {count}')
 print()
 
 if durations:
     print('Duration Statistics:')
-    print(f'  Average: {sum(durations)/len(durations):.1f}s')
-    print(f'  Min: {min(durations)}s')
-    print(f'  Max: {max(durations)}s')
+    print(f' Average: {sum(durations)/len(durations):.1f}s')
+    print(f' Min: {min(durations)}s')
+    print(f' Max: {max(durations)}s')
 "
 }
 
@@ -231,12 +231,12 @@ import sys, json
 data = json.load(sys.stdin)
 job = data.get('Job', {})
 
-print(f\"Name:              {job.get('Name', 'N/A')}\")
-print(f\"Glue Version:      {job.get('GlueVersion', 'N/A')}\")
-print(f\"Worker Type:       {job.get('WorkerType', 'N/A')}\")
+print(f\"Name: {job.get('Name', 'N/A')}\")
+print(f\"Glue Version: {job.get('GlueVersion', 'N/A')}\")
+print(f\"Worker Type: {job.get('WorkerType', 'N/A')}\")
 print(f\"Number of Workers: {job.get('NumberOfWorkers', 'N/A')}\")
-print(f\"Timeout:           {job.get('Timeout', 'N/A')} minutes\")
-print(f\"Max Concurrent:    {job.get('ExecutionProperty', {}).get('MaxConcurrentRuns', 'N/A')}\")
+print(f\"Timeout: {job.get('Timeout', 'N/A')} minutes\")
+print(f\"Max Concurrent: {job.get('ExecutionProperty', {}).get('MaxConcurrentRuns', 'N/A')}\")
 "
 }
 

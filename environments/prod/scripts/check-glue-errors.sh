@@ -45,30 +45,30 @@ from datetime import datetime
 
 data = json.load(sys.stdin)
 
-for i, job in enumerate(data[:10], 1):  # Show last 10 failures
+for i, job in enumerate(data[:10], 1): # Show last 10 failures
     job_id = job['Id']
     started = job['StartedOn']
     error = job.get('ErrorMessage', 'No error message')
 
     print(f"\n{i}. Job Run ID: {job_id}")
-    print(f"   Started: {started}")
-    print(f"   Error: {error}")
+    print(f" Started: {started}")
+    print(f" Error: {error}")
 
     # Check for common errors
     if 'OutOfMemory' in error or 'heap space' in error:
-        print(f"   → ISSUE: Out of memory - consider increasing worker size")
+        print(f" -> ISSUE: Out of memory - consider increasing worker size")
     elif 'timeout' in error.lower():
-        print(f"   → ISSUE: Job timeout - increase timeout or add workers")
+        print(f" -> ISSUE: Job timeout - increase timeout or add workers")
     elif 'Permission' in error or 'Access Denied' in error:
-        print(f"   → ISSUE: IAM permissions problem")
+        print(f" -> ISSUE: IAM permissions problem")
     elif 'No such file' in error or 'FileNotFound' in error:
-        print(f"   → ISSUE: Missing input files")
+        print(f" -> ISSUE: Missing input files")
 
     # Get arguments to see which manifest failed
     if 'Arguments' in job:
         args = job['Arguments']
         if '--manifest_path' in args:
-            print(f"   Manifest: {args['--manifest_path']}")
+            print(f" Manifest: {args['--manifest_path']}")
 
 EOF
 
@@ -102,11 +102,11 @@ echo ""
 echo "----------------------------------------"
 echo ""
 echo "Common Solutions:"
-echo "  1. Out of Memory → Increase worker type to G.2X or add more workers"
-echo "  2. Timeout → Increase job timeout or reduce files per manifest"
-echo "  3. Permissions → Check IAM role has S3, DynamoDB, Glue permissions"
-echo "  4. Missing files → Check manifest paths and S3 bucket contents"
+echo " 1. Out of Memory -> Increase worker type to G.2X or add more workers"
+echo " 2. Timeout -> Increase job timeout or reduce files per manifest"
+echo " 3. Permissions -> Check IAM role has S3, DynamoDB, Glue permissions"
+echo " 4. Missing files -> Check manifest paths and S3 bucket contents"
 echo ""
 echo "To view full logs:"
-echo "  aws logs tail /aws-glue/jobs/output --follow --region $REGION"
+echo " aws logs tail /aws-glue/jobs/output --follow --region $REGION"
 echo ""

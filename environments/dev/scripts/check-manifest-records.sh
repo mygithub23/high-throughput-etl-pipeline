@@ -16,7 +16,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo -e "${CYAN}========================================${NC}"
-echo -e "${CYAN}   MANIFEST Records Analysis${NC}"
+echo -e "${CYAN} MANIFEST Records Analysis${NC}"
 echo -e "${CYAN}========================================${NC}"
 echo ""
 
@@ -36,7 +36,7 @@ data = json.load(sys.stdin)
 items = data.get('Items', [])
 
 if not items:
-    print('❌ No MANIFEST records found!')
+    print('No MANIFEST records found!')
     sys.exit(0)
 
 print(f'Total MANIFEST records: {len(items)}')
@@ -50,7 +50,7 @@ for item in items:
 
 print('MANIFEST Records by Status:')
 for status, count in sorted(statuses.items()):
-    print(f'  {status}: {count}')
+    print(f' {status}: {count}')
 print()
 
 # Show details
@@ -68,18 +68,18 @@ for i, item in enumerate(sorted(items, key=lambda x: x.get('date_prefix', {}).ge
     error_message = item.get('error_message', {}).get('S', 'N/A')
 
     print(f'{i}. Date: {date_prefix}')
-    print(f'   Status: {status}')
-    print(f'   Files: {file_count}')
-    print(f'   Manifest: {manifest_path.split(\"/\")[-1] if manifest_path != \"N/A\" else \"N/A\"}')
+    print(f' Status: {status}')
+    print(f' Files: {file_count}')
+    print(f' Manifest: {manifest_path.split(\"/\")[-1] if manifest_path != \"N/A\" else \"N/A\"}')
 
     if glue_job_run_id != 'N/A':
-        print(f'   Glue Job ID: {glue_job_run_id[:50]}...')
+        print(f' Glue Job ID: {glue_job_run_id[:50]}...')
 
     if completed_time != 'N/A':
-        print(f'   Completed: {completed_time}')
+        print(f' Completed: {completed_time}')
 
     if error_message != 'N/A':
-        print(f'   ❌ Error: {error_message[:100]}...')
+        print(f' Error: {error_message[:100]}...')
 
     print()
 "
@@ -88,8 +88,8 @@ echo ""
 echo -e "${CYAN}========================================${NC}"
 echo ""
 echo "Expected counts based on pipeline activity:"
-echo "  - 15 manifests created for 2026-01-29"
-echo "  - 43 Step Functions executions succeeded"
-echo "  - Should have ~43-50 MANIFEST records total (including old dates)"
-echo "  - Most should be 'completed' if Step Functions updated them"
+echo " - 15 manifests created for 2026-01-29"
+echo " - 43 Step Functions executions succeeded"
+echo " - Should have ~43-50 MANIFEST records total (including old dates)"
+echo " - Most should be 'completed' if Step Functions updated them"
 echo ""

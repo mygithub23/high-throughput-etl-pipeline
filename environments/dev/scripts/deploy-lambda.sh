@@ -19,13 +19,13 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${CYAN}========================================${NC}"
-echo -e "${CYAN}   Lambda Deployment Tool${NC}"
+echo -e "${CYAN} Lambda Deployment Tool${NC}"
 echo -e "${CYAN}========================================${NC}"
 echo ""
 
 # 1. Check if Lambda source exists
 if [ ! -f "$LAMBDA_DIR/lambda_manifest_builder.py" ]; then
-    echo -e "${YELLOW}✗ Lambda source not found at: $LAMBDA_DIR${NC}"
+    echo -e "${YELLOW}Lambda source not found at: $LAMBDA_DIR${NC}"
     exit 1
 fi
 
@@ -43,7 +43,7 @@ cp "$LAMBDA_DIR/lambda_manifest_builder.py" "$TEMP_DIR/"
 cd "$TEMP_DIR"
 zip -q ndjson-parquet-manifest-builder.zip lambda_manifest_builder.py
 
-echo -e "${GREEN}✓ Lambda package created${NC}"
+echo -e "${GREEN}Lambda package created${NC}"
 echo ""
 
 # 2. Upload to S3
@@ -52,7 +52,7 @@ aws s3 cp ndjson-parquet-manifest-builder.zip \
     "s3://${SCRIPTS_BUCKET}/lambda/${ENV}/" \
     --region "$REGION"
 
-echo -e "${GREEN}✓ Uploaded to s3://${SCRIPTS_BUCKET}/lambda/${ENV}/ndjson-parquet-manifest-builder.zip${NC}"
+echo -e "${GREEN}Uploaded to s3://${SCRIPTS_BUCKET}/lambda/${ENV}/ndjson-parquet-manifest-builder.zip${NC}"
 echo ""
 
 # 3. Update Lambda function
@@ -73,7 +73,7 @@ print(f'State: {data.get(\"State\")}')
 "
 
 echo ""
-echo -e "${GREEN}✓ Lambda function updated successfully${NC}"
+echo -e "${GREEN}Lambda function updated successfully${NC}"
 echo ""
 
 # 4. Wait for update to complete
@@ -87,9 +87,9 @@ STATUS=$(aws lambda get-function \
     --output text)
 
 if [ "$STATUS" = "Active" ]; then
-    echo -e "${GREEN}✓ Lambda is Active and ready${NC}"
+    echo -e "${GREEN}Lambda is Active and ready${NC}"
 else
-    echo -e "${YELLOW}⚠️  Lambda state: $STATUS (may need to wait)${NC}"
+    echo -e "${YELLOW}Lambda state: $STATUS (may need to wait)${NC}"
 fi
 
 # Cleanup
@@ -101,17 +101,17 @@ echo -e "${GREEN}Deployment Complete!${NC}"
 echo -e "${CYAN}========================================${NC}"
 echo ""
 echo "Lambda function '$LAMBDA_FUNCTION' has been updated with:"
-echo "  ✓ MANIFEST record creation before Step Functions"
-echo "  ✓ Orphan flush mechanism for old dates"
-echo "  ✓ Lock contention retry logic"
+echo " MANIFEST record creation before Step Functions"
+echo " Orphan flush mechanism for old dates"
+echo " Lock contention retry logic"
 echo ""
 echo "Next steps:"
-echo "  1. Test by uploading new files:"
-echo "     aws s3 sync test-data/ s3://ndjson-input-sqs-${AWS_ACCOUNT_ID}-${ENV}/"
+echo " 1. Test by uploading new files:"
+echo " aws s3 sync test-data/ s3://ndjson-input-sqs-${AWS_ACCOUNT_ID}-${ENV}/"
 echo ""
-echo "  2. Monitor Lambda logs:"
-echo "     aws logs tail /aws/lambda/$LAMBDA_FUNCTION --follow --region $REGION"
+echo " 2. Monitor Lambda logs:"
+echo " aws logs tail /aws/lambda/$LAMBDA_FUNCTION --follow --region $REGION"
 echo ""
-echo "  3. Check MANIFEST records:"
-echo "     bash check-manifest-records.sh"
+echo " 3. Check MANIFEST records:"
+echo " bash check-manifest-records.sh"
 echo ""

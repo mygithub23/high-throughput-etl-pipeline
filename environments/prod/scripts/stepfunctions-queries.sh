@@ -17,7 +17,7 @@ RED='\033[0;31m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${RED}⚠️  PRODUCTION ENVIRONMENT${NC}"
+echo -e "${RED}PRODUCTION ENVIRONMENT${NC}"
 echo ""
 
 get_state_machine_arn() {
@@ -42,13 +42,13 @@ show_help() {
     echo "Usage: $0 <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  list [N]              List N most recent executions (default: 10)"
-    echo "  running               Show currently running executions"
-    echo "  succeeded             Show succeeded executions"
-    echo "  failed                Show failed executions"
-    echo "  details <exec-arn>    Show detailed execution info"
-    echo "  errors                Show error summary from recent failures"
-    echo "  stats                 Show execution statistics"
+    echo " list [N] List N most recent executions (default: 10)"
+    echo " running Show currently running executions"
+    echo " succeeded Show succeeded executions"
+    echo " failed Show failed executions"
+    echo " details <exec-arn> Show detailed execution info"
+    echo " errors Show error summary from recent failures"
+    echo " stats Show execution statistics"
     echo ""
     echo "Note: Stop operations are not available in production without confirmation"
     echo ""
@@ -119,10 +119,10 @@ import sys, json
 
 data = json.load(sys.stdin)
 
-print(f'Name:       {data.get(\"name\", \"N/A\")}')
-print(f'Status:     {data.get(\"status\", \"N/A\")}')
-print(f'Start:      {data.get(\"startDate\", \"N/A\")}')
-print(f'Stop:       {data.get(\"stopDate\", \"N/A\")}')
+print(f'Name: {data.get(\"name\", \"N/A\")}')
+print(f'Status: {data.get(\"status\", \"N/A\")}')
+print(f'Start: {data.get(\"startDate\", \"N/A\")}')
+print(f'Stop: {data.get(\"stopDate\", \"N/A\")}')
 print()
 
 if 'input' in data:
@@ -136,8 +136,8 @@ if 'input' in data:
 
 if data.get('status') == 'FAILED':
     print('Error:')
-    print(f'  Cause: {data.get(\"cause\", \"N/A\")}')
-    print(f'  Error: {data.get(\"error\", \"N/A\")}')
+    print(f' Cause: {data.get(\"cause\", \"N/A\")}')
+    print(f' Error: {data.get(\"error\", \"N/A\")}')
 "
 }
 
@@ -181,8 +181,8 @@ for ex in executions[:5]:
         cause = details.get('cause', 'N/A')
 
         print(f'Execution: {name}')
-        print(f'  Error: {error}')
-        print(f'  Cause: {cause[:200]}...' if len(cause) > 200 else f'  Cause: {cause}')
+        print(f' Error: {error}')
+        print(f' Cause: {cause[:200]}...' if len(cause) > 200 else f' Cause: {cause}')
         print()
 "
 }
@@ -199,13 +199,13 @@ show_stats() {
             --output json | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('executions',[])))")
 
         case $status in
-            RUNNING)   color=$YELLOW ;;
+            RUNNING) color=$YELLOW ;;
             SUCCEEDED) color=$GREEN ;;
-            FAILED)    color=$RED ;;
-            *)         color=$NC ;;
+            FAILED) color=$RED ;;
+            *) color=$NC ;;
         esac
 
-        echo -e "  ${color}${status}${NC}: $count"
+        echo -e " ${color}${status}${NC}: $count"
     done
     echo ""
 }

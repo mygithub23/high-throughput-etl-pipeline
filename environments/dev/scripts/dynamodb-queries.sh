@@ -4,12 +4,12 @@
 # Run common queries against the file tracking table
 #
 # Usage:
-#   ./dynamodb-queries.sh                    # Show menu
-#   ./dynamodb-queries.sh pending            # Show pending files
-#   ./dynamodb-queries.sh status             # Show status counts
-#   ./dynamodb-queries.sh date 2026-01-20    # Show files for specific date
-#   ./dynamodb-queries.sh manifests          # Show manifest records
-#   ./dynamodb-queries.sh delete-date 2026-01-20  # Delete all records for date
+# ./dynamodb-queries.sh # Show menu
+# ./dynamodb-queries.sh pending # Show pending files
+# ./dynamodb-queries.sh status # Show status counts
+# ./dynamodb-queries.sh date 2026-01-20 # Show files for specific date
+# ./dynamodb-queries.sh manifests # Show manifest records
+# ./dynamodb-queries.sh delete-date 2026-01-20 # Delete all records for date
 
 set -e
 
@@ -31,26 +31,26 @@ show_help() {
     echo "Usage: $0 <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  pending              Show all pending files"
-    echo "  manifested           Show all manifested files"
-    echo "  processing           Show files being processed"
-    echo "  completed            Show completed files"
-    echo "  failed               Show failed files"
-    echo "  status               Show file count by status"
-    echo "  date <YYYY-MM-DD>    Show all files for a specific date"
-    echo "  manifests            Show all MANIFEST records"
-    echo "  locks                Show all LOCK records"
-    echo "  recent [N]           Show N most recent files (default: 20)"
-    echo "  delete-date <date>   Delete all records for a specific date"
-    echo "  delete-status <s>    Delete all records with given status"
-    echo "  cleanup-locks        Delete all expired LOCK records"
-    echo "  raw <partiql>        Execute raw PartiQL query"
+    echo " pending Show all pending files"
+    echo " manifested Show all manifested files"
+    echo " processing Show files being processed"
+    echo " completed Show completed files"
+    echo " failed Show failed files"
+    echo " status Show file count by status"
+    echo " date <YYYY-MM-DD> Show all files for a specific date"
+    echo " manifests Show all MANIFEST records"
+    echo " locks Show all LOCK records"
+    echo " recent [N] Show N most recent files (default: 20)"
+    echo " delete-date <date> Delete all records for a specific date"
+    echo " delete-status <s> Delete all records with given status"
+    echo " cleanup-locks Delete all expired LOCK records"
+    echo " raw <partiql> Execute raw PartiQL query"
     echo ""
     echo "Examples:"
-    echo "  $0 pending"
-    echo "  $0 date 2026-01-20"
-    echo "  $0 delete-date 2025-12-25"
-    echo "  $0 raw \"SELECT * FROM \\\"${TABLE_NAME}\\\" WHERE status='failed'\""
+    echo " $0 pending"
+    echo " $0 date 2026-01-20"
+    echo " $0 delete-date 2025-12-25"
+    echo " $0 raw \"SELECT * FROM \\\"${TABLE_NAME}\\\" WHERE status='failed'\""
     echo ""
 }
 
@@ -86,7 +86,7 @@ def parse_value(v):
 for i, item in enumerate(items):
     print(f'--- Record {i+1} ---')
     for key, value in item.items():
-        print(f'  {key}: {parse_value(value)}')
+        print(f' {key}: {parse_value(value)}')
     print()
 
 print(f'Total: {len(items)} records')
@@ -154,14 +154,14 @@ count_by_status() {
             --output json | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('Items',[])))")
 
         case $status in
-            pending)    color=$YELLOW ;;
+            pending) color=$YELLOW ;;
             manifested) color=$CYAN ;;
             processing) color=$YELLOW ;;
-            completed)  color=$GREEN ;;
-            failed)     color=$RED ;;
+            completed) color=$GREEN ;;
+            failed) color=$RED ;;
         esac
 
-        echo -e "  ${color}${status}${NC}: $count"
+        echo -e " ${color}${status}${NC}: $count"
     done
     echo ""
 }
@@ -194,7 +194,7 @@ for item in data.get('Items', []):
     count=0
     while IFS='|' read -r dp fk; do
         if [ -n "$dp" ] && [ -n "$fk" ]; then
-            echo "  Deleting: $dp / $fk"
+            echo " Deleting: $dp / $fk"
             aws dynamodb delete-item \
                 --table-name "$TABLE_NAME" \
                 --key "{\"date_prefix\": {\"S\": \"$dp\"}, \"file_key\": {\"S\": \"$fk\"}}" \
@@ -254,8 +254,8 @@ case "${1:-help}" in
     delete-status)
         if [ -z "$2" ]; then
             echo "Usage: $0 delete-status <status>"
-            echo "  e.g. $0 delete-status failed"
-            echo "  Matches sharded values too (failed#0, failed#1, ...)"
+            echo " e.g. $0 delete-status failed"
+            echo " Matches sharded values too (failed#0, failed#1, ...)"
             exit 1
         fi
         target_status="$2"
@@ -283,7 +283,7 @@ for item in data.get('Items', []):
         count=0
         while IFS='|' read -r dp fk; do
             if [ -n "$dp" ] && [ -n "$fk" ]; then
-                echo "  Deleting: $dp / $fk"
+                echo " Deleting: $dp / $fk"
                 aws dynamodb delete-item \
                     --table-name "$TABLE_NAME" \
                     --key "{\"date_prefix\": {\"S\": \"$dp\"}, \"file_key\": {\"S\": \"$fk\"}}" \

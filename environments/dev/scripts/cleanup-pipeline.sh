@@ -4,11 +4,11 @@
 # Removes test data, manifests, DynamoDB records, and resets pipeline state
 #
 # Usage:
-#   ./cleanup-pipeline.sh                # Show menu
-#   ./cleanup-pipeline.sh all            # Clean everything
-#   ./cleanup-pipeline.sh date 2025-12-25  # Clean specific date
-#   ./cleanup-pipeline.sh s3             # Clean S3 only
-#   ./cleanup-pipeline.sh dynamodb       # Clean DynamoDB only
+# ./cleanup-pipeline.sh # Show menu
+# ./cleanup-pipeline.sh all # Clean everything
+# ./cleanup-pipeline.sh date 2025-12-25 # Clean specific date
+# ./cleanup-pipeline.sh s3 # Clean S3 only
+# ./cleanup-pipeline.sh dynamodb # Clean DynamoDB only
 
 set -e
 
@@ -38,25 +38,25 @@ show_help() {
     echo "Usage: $0 <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  status              Show current pipeline state (counts)"
-    echo "  all                 Clean everything (S3 + DynamoDB + stop executions)"
-    echo "  date <YYYY-MM-DD>   Clean all data for a specific date"
-    echo "  s3                  Clean all S3 buckets (input, manifest, output)"
-    echo "  s3-input            Clean input bucket only"
-    echo "  s3-manifests        Clean manifest bucket only"
-    echo "  s3-output           Clean output bucket only"
-    echo "  dynamodb            Clean all DynamoDB records"
-    echo "  dynamodb-pending    Delete only pending records"
-    echo "  stop-executions     Stop all running Step Function executions"
-    echo "  local               Clean local test-data directories"
+    echo " status Show current pipeline state (counts)"
+    echo " all Clean everything (S3 + DynamoDB + stop executions)"
+    echo " date <YYYY-MM-DD> Clean all data for a specific date"
+    echo " s3 Clean all S3 buckets (input, manifest, output)"
+    echo " s3-input Clean input bucket only"
+    echo " s3-manifests Clean manifest bucket only"
+    echo " s3-output Clean output bucket only"
+    echo " dynamodb Clean all DynamoDB records"
+    echo " dynamodb-pending Delete only pending records"
+    echo " stop-executions Stop all running Step Function executions"
+    echo " local Clean local test-data directories"
     echo ""
     echo "Options:"
-    echo "  --force             Skip confirmation prompts"
+    echo " --force Skip confirmation prompts"
     echo ""
     echo "Examples:"
-    echo "  $0 status"
-    echo "  $0 date 2025-12-25"
-    echo "  $0 all --force"
+    echo " $0 status"
+    echo " $0 date 2025-12-25"
+    echo " $0 all --force"
     echo ""
 }
 
@@ -68,7 +68,7 @@ show_status() {
     echo -e "${CYAN}S3 Buckets:${NC}"
     for bucket in "$INPUT_BUCKET" "$MANIFEST_BUCKET" "$OUTPUT_BUCKET" "$QUARANTINE_BUCKET"; do
         count=$(aws s3 ls "s3://${bucket}/" --recursive --region "$REGION" 2>/dev/null | wc -l || echo "0")
-        echo "  $bucket: $count files"
+        echo " $bucket: $count files"
     done
     echo ""
 
@@ -79,7 +79,7 @@ show_status() {
             --statement "SELECT * FROM \"${TABLE_NAME}\" WHERE status='${status}'" \
             --region "$REGION" \
             --output json 2>/dev/null | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('Items',[])))" || echo "0")
-        echo "  $status: $count"
+        echo " $status: $count"
     done
     echo ""
 
@@ -94,9 +94,9 @@ show_status() {
             --status-filter RUNNING \
             --region "$REGION" \
             --output json | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('executions',[])))")
-        echo "  Running executions: $running"
+        echo " Running executions: $running"
     else
-        echo "  State machine not found"
+        echo " State machine not found"
     fi
     echo ""
 }
@@ -127,7 +127,7 @@ clean_s3_bucket() {
         aws s3 rm "s3://${bucket}/" --recursive --region "$REGION" 2>/dev/null || true
     fi
 
-    echo -e "${GREEN}✓ Cleaned${NC}"
+    echo -e "${GREEN}Cleaned${NC}"
 }
 
 clean_dynamodb_all() {
@@ -157,12 +157,12 @@ for item in data.get('Items', []):
 
             # Progress indicator
             if [ $((count % 10)) -eq 0 ]; then
-                echo -ne "\r  Deleted: $count records"
+                echo -ne "\r Deleted: $count records"
             fi
         fi
     done <<< "$items"
 
-    echo -e "\r${GREEN}✓ Deleted $count records${NC}          "
+    echo -e "\r${GREEN}Deleted $count records${NC} "
 }
 
 clean_dynamodb_by_status() {
@@ -193,7 +193,7 @@ for item in data.get('Items', []):
         fi
     done <<< "$items"
 
-    echo -e "${GREEN}✓ Deleted $count records${NC}"
+    echo -e "${GREEN}Deleted $count records${NC}"
 }
 
 clean_dynamodb_by_date() {
@@ -224,7 +224,7 @@ for item in data.get('Items', []):
         fi
     done <<< "$items"
 
-    echo -e "${GREEN}✓ Deleted $count records${NC}"
+    echo -e "${GREEN}Deleted $count records${NC}"
 }
 
 stop_all_executions() {
@@ -259,7 +259,7 @@ for ex in data.get('executions', []):
         fi
     done <<< "$arns"
 
-    echo -e "${GREEN}✓ Stopped $count executions${NC}"
+    echo -e "${GREEN}Stopped $count executions${NC}"
 }
 
 clean_local() {
@@ -267,7 +267,7 @@ clean_local() {
 
     rm -rf ./test-data-* ./build/test-data 2>/dev/null || true
 
-    echo -e "${GREEN}✓ Local cleanup complete${NC}"
+    echo -e "${GREEN}Local cleanup complete${NC}"
 }
 
 # Parse --force flag

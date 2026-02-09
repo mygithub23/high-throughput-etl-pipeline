@@ -57,16 +57,16 @@ for location in manifest.get('fileLocations', []):
 
 print(f'Checking {len(file_paths)} files...')
 missing = 0
-for i, path in enumerate(file_paths[:5]):  # Check first 5
+for i, path in enumerate(file_paths[:5]): # Check first 5
     result = subprocess.run(['aws', 's3', 'ls', path], capture_output=True, text=True)
     if result.returncode != 0:
-        print(f'  ✗ MISSING: {path}')
+        print(f' MISSING: {path}')
         missing += 1
     else:
-        print(f'  ✓ EXISTS: {path}')
+        print(f' EXISTS: {path}')
 
 if len(file_paths) > 5:
-    print(f'  ... and {len(file_paths) - 5} more (not shown)')
+    print(f' ... and {len(file_paths) - 5} more (not shown)')
 "
 echo ""
 

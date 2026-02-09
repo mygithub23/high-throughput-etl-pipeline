@@ -31,7 +31,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "Deleting old output..."
     aws s3 rm s3://ndjson-parquet-output-${AWS_ACCOUNT_ID}/ --recursive --region $REGION || true
 
-    echo "✓ Cleanup complete"
+    echo "Cleanup complete"
 else
     echo "Skipping cleanup"
 fi
@@ -45,10 +45,10 @@ echo ""
 # Step 3: Wait for Lambda
 echo -e "${YELLOW}Step 3: Waiting for Lambda to process files (90 seconds)...${NC}"
 echo "Lambda will:"
-echo "  - Track files in DynamoDB"
-echo "  - Create manifest when threshold reached"
+echo " - Track files in DynamoDB"
+echo " - Create manifest when threshold reached"
 sleep 90
-echo "✓ Wait complete"
+echo "Wait complete"
 echo ""
 
 # Step 4: Check if manifest was created
@@ -60,13 +60,13 @@ if [ "$MANIFEST_COUNT" -eq "0" ]; then
     echo -e "${RED}No manifests created!${NC}"
     echo ""
     echo "Troubleshooting:"
-    echo "  1. Check Lambda logs: ./check-lambda-logs.sh"
-    echo "  2. Check DynamoDB: ./check-dynamodb-files.sh"
-    echo "  3. Check SQS: ./check-sqs-queue.sh"
+    echo " 1. Check Lambda logs: ./check-lambda-logs.sh"
+    echo " 2. Check DynamoDB: ./check-dynamodb-files.sh"
+    echo " 3. Check SQS: ./check-sqs-queue.sh"
     exit 1
 fi
 
-echo "✓ Manifests created"
+echo "Manifests created"
 echo ""
 
 # Step 5: Run Glue job
@@ -88,13 +88,13 @@ for i in {1..10}; do
         --query 'JobRuns[0].JobRunState' \
         --output text)
 
-    echo "  Status: $STATUS"
+    echo " Status: $STATUS"
 
     if [ "$STATUS" == "SUCCEEDED" ]; then
-        echo -e "${GREEN}✓ Job completed successfully!${NC}"
+        echo -e "${GREEN}Job completed successfully!${NC}"
         break
     elif [ "$STATUS" == "FAILED" ]; then
-        echo -e "${RED}✗ Job failed!${NC}"
+        echo -e "${RED}Job failed!${NC}"
         echo ""
         echo "Error details:"
         aws glue get-job-runs \
@@ -125,13 +125,13 @@ echo ""
 echo -e "${GREEN}=== Test Complete ===${NC}"
 echo ""
 echo "Summary:"
-echo "  ✓ Test data uploaded"
-echo "  ✓ Lambda created manifests"
-echo "  ✓ Glue job processed data"
-echo "  ✓ Parquet files created"
+echo " Test data uploaded"
+echo " Lambda created manifests"
+echo " Glue job processed data"
+echo " Parquet files created"
 echo ""
 echo "Next steps:"
-echo "  1. Query Parquet with Athena"
-echo "  2. Increase batch size for production (1.0 GB)"
-echo "  3. Monitor costs"
+echo " 1. Query Parquet with Athena"
+echo " 2. Increase batch size for production (1.0 GB)"
+echo " 3. Monitor costs"
 echo ""

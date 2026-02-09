@@ -4,9 +4,9 @@
 # Generates files, uploads, and monitors the pipeline
 #
 # Usage:
-#   ./quick-test.sh                 # Run with defaults (10 files, 1MB each)
-#   ./quick-test.sh 20 2            # 20 files, 2MB each
-#   ./quick-test.sh 20 2 --clean    # Clean before test
+# ./quick-test.sh # Run with defaults (10 files, 1MB each)
+# ./quick-test.sh 20 2 # 20 files, 2MB each
+# ./quick-test.sh 20 2 --clean # Clean before test
 
 set -e
 
@@ -36,13 +36,13 @@ CLEAN_FLAG=${3:-""}
 DATE_PREFIX=$(date +%Y-%m-%d)
 
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║     Quick Pipeline Test                ║${NC}"
+echo -e "${GREEN}║ Quick Pipeline Test ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
 echo ""
 echo "Configuration:"
-echo "  Files: $NUM_FILES"
-echo "  Size per file: ~${SIZE_MB} MB"
-echo "  Date prefix: $DATE_PREFIX"
+echo " Files: $NUM_FILES"
+echo " Size per file: ~${SIZE_MB} MB"
+echo " Date prefix: $DATE_PREFIX"
 echo ""
 
 #############################################################################
@@ -67,7 +67,7 @@ echo ""
 # STEP 2: Wait for Lambda Processing
 #############################################################################
 echo -e "${YELLOW}Step 2: Waiting for Lambda to process files...${NC}"
-echo "  (Checking every 10 seconds for up to 2 minutes)"
+echo " (Checking every 10 seconds for up to 2 minutes)"
 
 for i in {1..12}; do
     sleep 10
@@ -83,13 +83,13 @@ for i in {1..12}; do
         --region "$REGION" \
         --output json 2>/dev/null | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('Items',[])))" || echo "0")
 
-    echo "  [$i/12] Pending: $pending, Manifested: $manifested"
+    echo " [$i/12] Pending: $pending, Manifested: $manifested"
 
     # Check if manifest was created
     manifest_count=$(aws s3 ls "s3://${MANIFEST_BUCKET}/manifests/${DATE_PREFIX}/" --region "$REGION" 2>/dev/null | wc -l | tr -d ' ')
 
     if [ "$manifest_count" -gt "0" ]; then
-        echo -e "  ${GREEN}✓ Manifest(s) created!${NC}"
+        echo -e " ${GREEN}Manifest(s) created!${NC}"
         break
     fi
 done
@@ -98,7 +98,7 @@ echo ""
 
 # List manifests
 echo "Manifests created:"
-aws s3 ls "s3://${MANIFEST_BUCKET}/manifests/${DATE_PREFIX}/" --region "$REGION" 2>/dev/null || echo "  None found"
+aws s3 ls "s3://${MANIFEST_BUCKET}/manifests/${DATE_PREFIX}/" --region "$REGION" 2>/dev/null || echo " None found"
 echo ""
 
 #############################################################################
@@ -109,7 +109,7 @@ echo -e "${YELLOW}Step 3: Monitoring Step Functions execution...${NC}"
 SM_ARN=$(aws stepfunctions list-state-machines --region "$REGION" \
     --query "stateMachines[?name=='${STATE_MACHINE_NAME}'].stateMachineArn" --output text)
 
-echo "  (Checking every 15 seconds for up to 5 minutes)"
+echo " (Checking every 15 seconds for up to 5 minutes)"
 
 for i in {1..20}; do
     sleep 15
@@ -134,22 +134,22 @@ else:
 
     case "$status" in
         RUNNING)
-            echo -e "  [$i/20] ${YELLOW}$status${NC} - $name"
+            echo -e " [$i/20] ${YELLOW}$status${NC} - $name"
             ;;
         SUCCEEDED)
-            echo -e "  [$i/20] ${GREEN}$status${NC} - $name"
+            echo -e " [$i/20] ${GREEN}$status${NC} - $name"
             echo ""
             break
             ;;
         FAILED)
-            echo -e "  [$i/20] ${RED}$status${NC} - $name"
+            echo -e " [$i/20] ${RED}$status${NC} - $name"
             echo ""
             echo -e "${RED}Execution failed! Checking error...${NC}"
             ./stepfunctions-queries.sh errors
             break
             ;;
         *)
-            echo "  [$i/20] Waiting for execution..."
+            echo " [$i/20] Waiting for execution..."
             ;;
     esac
 done
@@ -162,11 +162,11 @@ echo -e "${YELLOW}Step 4: Checking Parquet output...${NC}"
 output_files=$(aws s3 ls "s3://${OUTPUT_BUCKET}/merged-parquet/${DATE_PREFIX}/" --recursive --region "$REGION" 2>/dev/null || echo "")
 
 if [ -n "$output_files" ]; then
-    echo -e "${GREEN}✓ Output files created:${NC}"
+    echo -e "${GREEN}Output files created:${NC}"
     echo "$output_files" | head -5
     output_count=$(echo "$output_files" | wc -l | tr -d ' ')
     if [ "$output_count" -gt "5" ]; then
-        echo "  ... and $((output_count - 5)) more files"
+        echo " ... and $((output_count - 5)) more files"
     fi
 else
     echo -e "${YELLOW}No output files yet. Glue job may still be running.${NC}"
@@ -178,7 +178,7 @@ echo ""
 # STEP 5: Summary
 #############################################################################
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║           Test Summary                 ║${NC}"
+echo -e "${GREEN}║ Test Summary ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -192,9 +192,9 @@ for status in pending manifested processing completed failed; do
 
     if [ "$count" -gt "0" ]; then
         case $status in
-            completed) echo -e "  ${GREEN}$status: $count${NC}" ;;
-            failed)    echo -e "  ${RED}$status: $count${NC}" ;;
-            *)         echo -e "  ${YELLOW}$status: $count${NC}" ;;
+            completed) echo -e " ${GREEN}$status: $count${NC}" ;;
+            failed) echo -e " ${RED}$status: $count${NC}" ;;
+            *) echo -e " ${YELLOW}$status: $count${NC}" ;;
         esac
     fi
 done
@@ -208,16 +208,16 @@ completed=$(aws dynamodb execute-statement \
 
 if [ "$completed" -gt "0" ]; then
     echo -e "${GREEN}═══════════════════════════════════════════${NC}"
-    echo -e "${GREEN}  ✓ TEST PASSED - Pipeline working correctly${NC}"
+    echo -e "${GREEN} TEST PASSED - Pipeline working correctly${NC}"
     echo -e "${GREEN}═══════════════════════════════════════════${NC}"
 else
     echo -e "${YELLOW}═══════════════════════════════════════════${NC}"
-    echo -e "${YELLOW}  ⚠ TEST INCOMPLETE - Check status manually${NC}"
+    echo -e "${YELLOW} TEST INCOMPLETE - Check status manually${NC}"
     echo -e "${YELLOW}═══════════════════════════════════════════${NC}"
     echo ""
     echo "Debug commands:"
-    echo "  ./dynamodb-queries.sh date $DATE_PREFIX"
-    echo "  ./stepfunctions-queries.sh failed"
-    echo "  ./glue-queries.sh errors"
+    echo " ./dynamodb-queries.sh date $DATE_PREFIX"
+    echo " ./stepfunctions-queries.sh failed"
+    echo " ./glue-queries.sh errors"
 fi
 echo ""

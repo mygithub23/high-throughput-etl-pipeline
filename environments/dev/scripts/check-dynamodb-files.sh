@@ -51,7 +51,7 @@ for item in data.get('Items', []):
 
 print('Status counts:')
 for status, count in statuses.items():
-    print(f'  {status}: {count}')
+    print(f' {status}: {count}')
 print(f'\nTotal size: {total_size:.4f} MB ({total_size/1024:.6f} GB)')
 print(f'Batch threshold: 0.001 GB (1 MB)')
 print(f'Ready to create manifest: {\"YES\" if total_size/1024 >= 0.001 else \"NO\"}')

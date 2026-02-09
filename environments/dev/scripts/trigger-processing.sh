@@ -4,10 +4,10 @@
 # Re-run Step Functions or Glue job for a specific manifest
 #
 # Usage:
-#   ./trigger-processing.sh list                    # List available manifests
-#   ./trigger-processing.sh stepfn <manifest-path>  # Trigger via Step Functions
-#   ./trigger-processing.sh glue <manifest-path>    # Trigger Glue directly
-#   ./trigger-processing.sh retry-failed            # Retry all failed executions
+# ./trigger-processing.sh list # List available manifests
+# ./trigger-processing.sh stepfn <manifest-path> # Trigger via Step Functions
+# ./trigger-processing.sh glue <manifest-path> # Trigger Glue directly
+# ./trigger-processing.sh retry-failed # Retry all failed executions
 
 set -e
 
@@ -34,17 +34,17 @@ show_help() {
     echo "Usage: $0 <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  list [date]              List manifests (optionally for specific date)"
-    echo "  stepfn <manifest-path>   Trigger processing via Step Functions"
-    echo "  glue <manifest-path>     Trigger Glue job directly (skips Step Functions)"
-    echo "  retry-failed             Retry all failed Step Function executions"
-    echo "  show <manifest-path>     Show manifest contents"
+    echo " list [date] List manifests (optionally for specific date)"
+    echo " stepfn <manifest-path> Trigger processing via Step Functions"
+    echo " glue <manifest-path> Trigger Glue job directly (skips Step Functions)"
+    echo " retry-failed Retry all failed Step Function executions"
+    echo " show <manifest-path> Show manifest contents"
     echo ""
     echo "Examples:"
-    echo "  $0 list"
-    echo "  $0 list 2026-01-20"
-    echo "  $0 stepfn s3://bucket/manifests/2026-01-20/batch-0001.json"
-    echo "  $0 glue s3://bucket/manifests/2026-01-20/batch-0001.json"
+    echo " $0 list"
+    echo " $0 list 2026-01-20"
+    echo " $0 stepfn s3://bucket/manifests/2026-01-20/batch-0001.json"
+    echo " $0 glue s3://bucket/manifests/2026-01-20/batch-0001.json"
     echo ""
 }
 
@@ -63,7 +63,7 @@ list_manifests() {
             date_dir=$(echo "$line" | awk '{print $2}' | tr -d '/')
             if [ -n "$date_dir" ]; then
                 count=$(aws s3 ls "s3://${MANIFEST_BUCKET}/manifests/${date_dir}/" --region "$REGION" 2>/dev/null | wc -l | tr -d ' ')
-                echo "  $date_dir: $count manifests"
+                echo " $date_dir: $count manifests"
             fi
         done
     fi
@@ -114,10 +114,10 @@ print(len(locations))
     fi
 
     echo -e "${YELLOW}Triggering Step Functions...${NC}"
-    echo "  State Machine: $STATE_MACHINE_NAME"
-    echo "  Manifest: $manifest_path"
-    echo "  Date Prefix: $date_prefix"
-    echo "  File Count: $file_count"
+    echo " State Machine: $STATE_MACHINE_NAME"
+    echo " Manifest: $manifest_path"
+    echo " Date Prefix: $date_prefix"
+    echo " File Count: $file_count"
     echo ""
 
     # Build input JSON
@@ -152,20 +152,20 @@ EOF
 
     exec_arn=$(echo "$result" | python3 -c "import sys,json; print(json.load(sys.stdin)['executionArn'])")
 
-    echo -e "${GREEN}✓ Execution started${NC}"
-    echo "  ARN: $exec_arn"
+    echo -e "${GREEN}Execution started${NC}"
+    echo " ARN: $exec_arn"
     echo ""
     echo "Monitor with:"
-    echo "  ./stepfunctions-queries.sh details $exec_arn"
+    echo " ./stepfunctions-queries.sh details $exec_arn"
 }
 
 trigger_glue() {
     local manifest_path="$1"
 
     echo -e "${YELLOW}Triggering Glue Job directly...${NC}"
-    echo "  Job: $GLUE_JOB_NAME"
-    echo "  Manifest: $manifest_path"
-    echo "  Output Bucket: $OUTPUT_BUCKET"
+    echo " Job: $GLUE_JOB_NAME"
+    echo " Manifest: $manifest_path"
+    echo " Output Bucket: $OUTPUT_BUCKET"
     echo ""
 
     read -p "Proceed? (y/N) " -n 1 -r
@@ -189,11 +189,11 @@ trigger_glue() {
 
     run_id=$(echo "$result" | python3 -c "import sys,json; print(json.load(sys.stdin)['JobRunId'])")
 
-    echo -e "${GREEN}✓ Glue job started${NC}"
-    echo "  Run ID: $run_id"
+    echo -e "${GREEN}Glue job started${NC}"
+    echo " Run ID: $run_id"
     echo ""
     echo "Monitor with:"
-    echo "  ./glue-queries.sh details $run_id"
+    echo " ./glue-queries.sh details $run_id"
     echo ""
     echo -e "${YELLOW}Note: DynamoDB status will NOT be updated (Step Functions skipped)${NC}"
 }
@@ -234,7 +234,7 @@ import sys, json
 data = json.load(sys.stdin)
 for i, ex in enumerate(data.get('executions', []), 1):
     print(f\"{i}. {ex['name']}\")
-    print(f\"   Started: {ex['startDate'][:19]}\")
+    print(f\" Started: {ex['startDate'][:19]}\")
 "
 
     echo ""
@@ -282,12 +282,12 @@ for ex in data.get('executions', []):
                 --state-machine-arn "$SM_ARN" \
                 --input "$input_json" \
                 --region "$REGION" \
-                --output json | python3 -c "import sys,json; print(f\"  New ARN: {json.load(sys.stdin)['executionArn']}\")"
+                --output json | python3 -c "import sys,json; print(f\" New ARN: {json.load(sys.stdin)['executionArn']}\")"
         fi
     done
 
     echo ""
-    echo -e "${GREEN}✓ Retry complete${NC}"
+    echo -e "${GREEN}Retry complete${NC}"
 }
 
 # Main command handler
@@ -307,7 +307,7 @@ case "${1:-help}" in
             echo "Usage: $0 stepfn <manifest-path>"
             echo ""
             echo "Example:"
-            echo "  $0 stepfn s3://${MANIFEST_BUCKET}/manifests/2026-01-20/batch-0001.json"
+            echo " $0 stepfn s3://${MANIFEST_BUCKET}/manifests/2026-01-20/batch-0001.json"
             exit 1
         fi
         trigger_stepfn "$2"

@@ -32,20 +32,20 @@ NC='\033[0m'
 TODAY=$(date +%Y-%m-%d)
 
 echo -e "${BOLD}${RED}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}${RED}║     PRODUCTION - NDJSON to Parquet Pipeline Status             ║${NC}"
+echo -e "${BOLD}${RED}║ PRODUCTION - NDJSON to Parquet Pipeline Status ║${NC}"
 echo -e "${BOLD}${RED}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${CYAN}Environment:${NC} ${RED}$ENV${NC}"
-echo -e "${CYAN}Account:${NC}     $AWS_ACCOUNT_ID"
-echo -e "${CYAN}Region:${NC}      $REGION"
-echo -e "${CYAN}Date:${NC}        $TODAY"
+echo -e "${CYAN}Account:${NC} $AWS_ACCOUNT_ID"
+echo -e "${CYAN}Region:${NC} $REGION"
+echo -e "${CYAN}Date:${NC} $TODAY"
 echo ""
 
 #############################################################################
 # S3 BUCKETS
 #############################################################################
 echo -e "${BOLD}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BOLD}│ S3 BUCKETS                                                      │${NC}"
+echo -e "${BOLD}│ S3 BUCKETS │${NC}"
 echo -e "${BOLD}└─────────────────────────────────────────────────────────────────┘${NC}"
 
 for bucket_info in \
@@ -62,7 +62,7 @@ for bucket_info in \
         count=$(aws s3 ls "s3://${bucket}/" --recursive --region "$REGION" 2>/dev/null | wc -l | tr -d ' ')
     fi
 
-    printf "  %-12s %6s files\n" "$label:" "$count"
+    printf " %-12s %6s files\n" "$label:" "$count"
 done
 echo ""
 
@@ -70,7 +70,7 @@ echo ""
 # DYNAMODB
 #############################################################################
 echo -e "${BOLD}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BOLD}│ DYNAMODB FILE TRACKING                                          │${NC}"
+echo -e "${BOLD}│ DYNAMODB FILE TRACKING │${NC}"
 echo -e "${BOLD}└─────────────────────────────────────────────────────────────────┘${NC}"
 
 for status in pending manifested processing completed failed; do
@@ -80,14 +80,14 @@ for status in pending manifested processing completed failed; do
         --output json 2>/dev/null | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('Items',[])))" || echo "0")
 
     case $status in
-        pending)    color=$YELLOW ;;
+        pending) color=$YELLOW ;;
         manifested) color=$CYAN ;;
         processing) color=$YELLOW ;;
-        completed)  color=$GREEN ;;
-        failed)     color=$RED ;;
+        completed) color=$GREEN ;;
+        failed) color=$RED ;;
     esac
 
-    printf "  ${color}%-12s${NC} %6s\n" "$status:" "$count"
+    printf " ${color}%-12s${NC} %6s\n" "$status:" "$count"
 done
 echo ""
 
@@ -95,7 +95,7 @@ echo ""
 # STEP FUNCTIONS
 #############################################################################
 echo -e "${BOLD}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BOLD}│ STEP FUNCTIONS                                                  │${NC}"
+echo -e "${BOLD}│ STEP FUNCTIONS │${NC}"
 echo -e "${BOLD}└─────────────────────────────────────────────────────────────────┘${NC}"
 
 SM_ARN=$(aws stepfunctions list-state-machines --region "$REGION" \
@@ -110,15 +110,15 @@ if [ -n "$SM_ARN" ]; then
             --output json 2>/dev/null | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('executions',[])))" || echo "0")
 
         case $status in
-            RUNNING)   color=$YELLOW ;;
+            RUNNING) color=$YELLOW ;;
             SUCCEEDED) color=$GREEN ;;
-            FAILED)    color=$RED ;;
+            FAILED) color=$RED ;;
         esac
 
-        printf "  ${color}%-12s${NC} %6s\n" "$status:" "$count"
+        printf " ${color}%-12s${NC} %6s\n" "$status:" "$count"
     done
 else
-    echo -e "  ${RED}State machine not found${NC}"
+    echo -e " ${RED}State machine not found${NC}"
 fi
 echo ""
 
@@ -126,7 +126,7 @@ echo ""
 # GLUE JOB
 #############################################################################
 echo -e "${BOLD}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BOLD}│ GLUE JOB                                                        │${NC}"
+echo -e "${BOLD}│ GLUE JOB │${NC}"
 echo -e "${BOLD}└─────────────────────────────────────────────────────────────────┘${NC}"
 
 aws glue get-job-runs \
@@ -141,7 +141,7 @@ data = json.load(sys.stdin)
 runs = data.get('JobRuns', [])
 
 if not runs:
-    print('  No job runs found')
+    print(' No job runs found')
     sys.exit(0)
 
 status_counts = Counter(r['JobRunState'] for r in runs)
@@ -156,8 +156,8 @@ NC = '\033[0m'
 for status in ['RUNNING', 'SUCCEEDED', 'FAILED']:
     count = status_counts.get(status, 0)
     color = colors.get(status, '')
-    print(f'  {color}{status}:{NC}      {count:>4}')
-" || echo "  Glue job not found"
+    print(f' {color}{status}:{NC} {count:>4}')
+" || echo " Glue job not found"
 
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════════════════════════════════${NC}"

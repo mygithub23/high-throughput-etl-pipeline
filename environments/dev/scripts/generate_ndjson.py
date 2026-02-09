@@ -144,7 +144,7 @@ class TestDataGenerator:
             'utm_campaign': f'campaign_{random.randint(1, 100)}',
             'duration_seconds': random.randint(1, 3600),
             'bounce': random.choice([True, False]),
-            'conversion': random.choice([True, False, False, False]),  # 25% conversion rate
+            'conversion': random.choice([True, False, False, False]), # 25% conversion rate
             'revenue': round(random.uniform(0, 500), 2) if random.random() < 0.25 else 0,
             'items_viewed': random.randint(0, 20),
             'custom_data': {
@@ -200,18 +200,18 @@ class TestFileUploader:
 
         # Define ingestion rate delays (seconds between files)
         rate_delays = {
-            'immediate': 0,      # No delay - upload all at once
-            'fast': 1,           # 1 second between files (60 files/minute)
-            'medium': 5,         # 5 seconds between files (12 files/minute)
-            'slow': 10,          # 10 seconds between files (6 files/minute)
-            'random': None       # Random delay between 1-10 seconds
+            'immediate': 0, # No delay - upload all at once
+            'fast': 1, # 1 second between files (60 files/minute)
+            'medium': 5, # 5 seconds between files (12 files/minute)
+            'slow': 10, # 10 seconds between files (6 files/minute)
+            'random': None # Random delay between 1-10 seconds
         }
 
         # Use custom delay if provided, otherwise use rate type
         if delay_seconds is not None:
             delay = delay_seconds
         elif ingestion_rate == 'random':
-            delay = None  # Will randomize per file
+            delay = None # Will randomize per file
         else:
             delay = rate_delays.get(ingestion_rate, 0)
 
@@ -227,10 +227,10 @@ class TestFileUploader:
                 if i < count - 1:
                     if ingestion_rate == 'random':
                         wait_time = random.uniform(1, 10)
-                        print(f"  ⏱️  Waiting {wait_time:.1f}s before next file (random rate)...")
+                        print(f" ⏱Waiting {wait_time:.1f}s before next file (random rate)...")
                         time.sleep(wait_time)
                     elif delay > 0:
-                        print(f"  ⏱️  Waiting {delay}s before next file ({ingestion_rate} rate)...")
+                        print(f" ⏱Waiting {delay}s before next file ({ingestion_rate} rate)...")
                         time.sleep(delay)
 
             except Exception as e:
@@ -332,7 +332,7 @@ def lambda_handler(event, context):
     try:
         # Parse event parameters with dynamic UTC date default
         files_to_generate = event.get('file_count', 7)
-        date_prefix = event.get('date_prefix')  # None = will use UTC today in uploader
+        date_prefix = event.get('date_prefix') # None = will use UTC today in uploader
         target_size_mb = event.get('target_size_mb', TARGET_FILE_SIZE_MB)
         ingestion_rate = event.get('ingestion_rate', 'immediate')
         delay_seconds = event.get('delay_seconds')
@@ -342,13 +342,13 @@ def lambda_handler(event, context):
             date_prefix = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
         print(f"Starting test file generation:")
-        print(f"  - Files: {files_to_generate}")
-        print(f"  - Target size: {target_size_mb} MB")
-        print(f"  - Date prefix: {date_prefix} (UTC)")
-        print(f"  - Bucket: {INPUT_BUCKET}")
-        print(f"  - Ingestion rate: {ingestion_rate}")
+        print(f" - Files: {files_to_generate}")
+        print(f" - Target size: {target_size_mb} MB")
+        print(f" - Date prefix: {date_prefix} (UTC)")
+        print(f" - Bucket: {INPUT_BUCKET}")
+        print(f" - Ingestion rate: {ingestion_rate}")
         if delay_seconds:
-            print(f"  - Custom delay: {delay_seconds}s")
+            print(f" - Custom delay: {delay_seconds}s")
 
         # Initialize generator and uploader
         target_size_bytes = int(target_size_mb * BYTES_PER_MB)
@@ -380,13 +380,13 @@ def lambda_handler(event, context):
             'bucket': INPUT_BUCKET,
             'date_prefix': date_prefix,
             'ingestion_rate': ingestion_rate,
-            'files': successful[:10]  # Return first 10 for reference
+            'files': successful[:10] # Return first 10 for reference
         }
 
         if failed:
             result['errors'] = failed
 
-        print(f"\n✓ Generation complete: {len(successful)}/{files_to_generate} files uploaded")
+        print(f"\nGeneration complete: {len(successful)}/{files_to_generate} files uploaded")
         print(f"Total size: {total_size_mb:.2f} MB, Avg: {avg_size_mb:.2f} MB")
 
         return {

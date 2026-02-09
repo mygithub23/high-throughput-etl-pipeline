@@ -4,9 +4,9 @@
 # Run common queries against the file tracking table
 #
 # Usage:
-#   ./dynamodb-queries.sh                    # Show menu
-#   ./dynamodb-queries.sh pending            # Show pending files
-#   ./dynamodb-queries.sh status             # Show status counts
+# ./dynamodb-queries.sh # Show menu
+# ./dynamodb-queries.sh pending # Show pending files
+# ./dynamodb-queries.sh status # Show status counts
 
 set -e
 
@@ -22,7 +22,7 @@ RED='\033[0;31m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${RED}⚠️  PRODUCTION ENVIRONMENT${NC}"
+echo -e "${RED}PRODUCTION ENVIRONMENT${NC}"
 echo ""
 
 show_help() {
@@ -31,15 +31,15 @@ show_help() {
     echo "Usage: $0 <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  pending              Show all pending files"
-    echo "  manifested           Show all manifested files"
-    echo "  processing           Show files being processed"
-    echo "  completed            Show completed files"
-    echo "  failed               Show failed files"
-    echo "  status               Show file count by status"
-    echo "  date <YYYY-MM-DD>    Show all files for a specific date"
-    echo "  manifests            Show all MANIFEST records"
-    echo "  recent [N]           Show N most recent files (default: 20)"
+    echo " pending Show all pending files"
+    echo " manifested Show all manifested files"
+    echo " processing Show files being processed"
+    echo " completed Show completed files"
+    echo " failed Show failed files"
+    echo " status Show file count by status"
+    echo " date <YYYY-MM-DD> Show all files for a specific date"
+    echo " manifests Show all MANIFEST records"
+    echo " recent [N] Show N most recent files (default: 20)"
     echo ""
     echo "Note: Destructive operations (delete) are not available in production"
     echo ""
@@ -71,7 +71,7 @@ def parse_value(v):
 for i, item in enumerate(items):
     print(f'--- Record {i+1} ---')
     for key, value in item.items():
-        print(f'  {key}: {parse_value(value)}')
+        print(f' {key}: {parse_value(value)}')
     print()
 
 print(f'Total: {len(items)} records')
@@ -132,14 +132,14 @@ count_by_status() {
             --output json | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('Items',[])))")
 
         case $status in
-            pending)    color=$YELLOW ;;
+            pending) color=$YELLOW ;;
             manifested) color=$CYAN ;;
             processing) color=$YELLOW ;;
-            completed)  color=$GREEN ;;
-            failed)     color=$RED ;;
+            completed) color=$GREEN ;;
+            failed) color=$RED ;;
         esac
 
-        echo -e "  ${color}${status}${NC}: $count"
+        echo -e " ${color}${status}${NC}: $count"
     done
     echo ""
 }

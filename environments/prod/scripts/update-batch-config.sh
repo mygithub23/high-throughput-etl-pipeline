@@ -37,9 +37,9 @@ max_files = config.get('MAX_FILES_PER_MANIFEST', 'NOT SET')
 max_size = config.get('MAX_BATCH_SIZE_GB', 'NOT SET')
 file_size = config.get('EXPECTED_FILE_SIZE_MB', 'NOT SET')
 
-print(f"  MAX_FILES_PER_MANIFEST: {max_files}")
-print(f"  MAX_BATCH_SIZE_GB: {max_size}")
-print(f"  EXPECTED_FILE_SIZE_MB: {file_size}")
+print(f" MAX_FILES_PER_MANIFEST: {max_files}")
+print(f" MAX_BATCH_SIZE_GB: {max_size}")
+print(f" EXPECTED_FILE_SIZE_MB: {file_size}")
 EOF
 
 echo ""
@@ -64,11 +64,11 @@ num_workers = job.get('NumberOfWorkers', 'UNKNOWN')
 max_concurrent = job.get('ExecutionProperty', {}).get('MaxConcurrentRuns', 'UNKNOWN')
 timeout = job.get('Timeout', 'UNKNOWN')
 
-print(f"  Command (mode): {command}")
-print(f"  WorkerType: {worker_type}")
-print(f"  NumberOfWorkers: {num_workers}")
-print(f"  MaxConcurrentRuns: {max_concurrent}")
-print(f"  Timeout: {timeout} minutes")
+print(f" Command (mode): {command}")
+print(f" WorkerType: {worker_type}")
+print(f" NumberOfWorkers: {num_workers}")
+print(f" MaxConcurrentRuns: {max_concurrent}")
+print(f" Timeout: {timeout} minutes")
 EOF
 
 echo ""
@@ -79,16 +79,16 @@ echo ""
 echo "Configuration Presets:"
 echo ""
 echo "1. Light Load (50K files/day, 2-4GB files)"
-echo "   Lambda: MAX_FILES_PER_MANIFEST=100, MAX_BATCH_SIZE_GB=400"
-echo "   Glue: 20 concurrent jobs, 15 workers, G.2X"
+echo " Lambda: MAX_FILES_PER_MANIFEST=100, MAX_BATCH_SIZE_GB=400"
+echo " Glue: 20 concurrent jobs, 15 workers, G.2X"
 echo ""
 echo "2. Medium Load (150K files/day, 3.5-4GB files) - CURRENT TARGET"
-echo "   Lambda: MAX_FILES_PER_MANIFEST=100, MAX_BATCH_SIZE_GB=500"
-echo "   Glue: 30 concurrent jobs, 20 workers, G.2X"
+echo " Lambda: MAX_FILES_PER_MANIFEST=100, MAX_BATCH_SIZE_GB=500"
+echo " Glue: 30 concurrent jobs, 20 workers, G.2X"
 echo ""
 echo "3. Heavy Load (338K files/day, 3.5-4.5GB files)"
-echo "   Lambda: MAX_FILES_PER_MANIFEST=100, MAX_BATCH_SIZE_GB=500"
-echo "   Glue: 50 concurrent jobs, 20 workers, G.2X"
+echo " Lambda: MAX_FILES_PER_MANIFEST=100, MAX_BATCH_SIZE_GB=500"
+echo " Glue: 50 concurrent jobs, 20 workers, G.2X"
 echo ""
 echo "4. Custom Configuration"
 echo ""
@@ -134,10 +134,10 @@ esac
 
 echo ""
 echo -e "${YELLOW}Will apply:${NC}"
-echo "  Lambda MAX_FILES_PER_MANIFEST: $MAX_FILES"
-echo "  Lambda MAX_BATCH_SIZE_GB: $MAX_SIZE"
-echo "  Glue MaxConcurrentRuns: $CONCURRENT"
-echo "  Glue NumberOfWorkers: $WORKERS"
+echo " Lambda MAX_FILES_PER_MANIFEST: $MAX_FILES"
+echo " Lambda MAX_BATCH_SIZE_GB: $MAX_SIZE"
+echo " Glue MaxConcurrentRuns: $CONCURRENT"
+echo " Glue NumberOfWorkers: $WORKERS"
 echo ""
 
 read -p "Apply these changes? (y/N) " -n 1 -r
@@ -177,7 +177,7 @@ aws lambda update-function-configuration \
   --output text \
   --query 'FunctionName' > /dev/null
 
-echo -e "${GREEN}✓ Lambda updated${NC}"
+echo -e "${GREEN}Lambda updated${NC}"
 
 # Update Glue
 echo ""
@@ -194,22 +194,22 @@ aws glue update-job \
   }" \
   --region $REGION > /dev/null
 
-echo -e "${GREEN}✓ Glue updated${NC}"
+echo -e "${GREEN}Glue updated${NC}"
 
 echo ""
-echo -e "${GREEN}✓ Configuration updated successfully${NC}"
+echo -e "${GREEN}Configuration updated successfully${NC}"
 echo ""
 
 # Show new config
 echo -e "${YELLOW}New Configuration:${NC}"
-echo "  Processing capacity: $((CONCURRENT * MAX_FILES)) files in parallel"
-echo "  Batch size: $MAX_FILES files per manifest (~$((MAX_FILES * 4))GB max)"
-echo "  Worker capacity: $((CONCURRENT * WORKERS)) total workers"
+echo " Processing capacity: $((CONCURRENT * MAX_FILES)) files in parallel"
+echo " Batch size: $MAX_FILES files per manifest (~$((MAX_FILES * 4))GB max)"
+echo " Worker capacity: $((CONCURRENT * WORKERS)) total workers"
 echo ""
 echo "Estimated performance for 338K files/day:"
 MANIFESTS=$((338000 / MAX_FILES))
 BATCHES=$((MANIFESTS / CONCURRENT))
 HOURS=$((BATCHES * 5 / 60))
-echo "  Manifests per day: ~$MANIFESTS"
-echo "  Processing time: ~$HOURS hours"
+echo " Manifests per day: ~$MANIFESTS"
+echo " Processing time: ~$HOURS hours"
 echo ""

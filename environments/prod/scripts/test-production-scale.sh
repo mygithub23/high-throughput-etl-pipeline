@@ -22,10 +22,10 @@ echo ""
 
 # Test phases
 echo "Test Phases:"
-echo "  Phase 1: 10 files (35GB) - Quick validation"
-echo "  Phase 2: 100 files (350GB) - 1 manifest test"
-echo "  Phase 3: 1,000 files (3.5TB) - 10 manifests"
-echo "  Phase 4: 10,000 files (35TB) - 100 manifests"
+echo " Phase 1: 10 files (35GB) - Quick validation"
+echo " Phase 2: 100 files (350GB) - 1 manifest test"
+echo " Phase 3: 1,000 files (3.5TB) - 10 manifests"
+echo " Phase 4: 10,000 files (35TB) - 100 manifests"
 echo ""
 
 read -p "Which phase do you want to run? (1-4): " PHASE
@@ -63,10 +63,10 @@ esac
 
 echo ""
 echo "Configuration:"
-echo "  Files: $NUM_FILES"
-echo "  Expected manifests: $EXPECTED_MANIFESTS"
-echo "  Expected time: $EXPECTED_TIME"
-echo "  Expected cost: $EXPECTED_COST"
+echo " Files: $NUM_FILES"
+echo " Expected manifests: $EXPECTED_MANIFESTS"
+echo " Expected time: $EXPECTED_TIME"
+echo " Expected cost: $EXPECTED_COST"
 echo ""
 
 read -p "Continue? (y/N) " -n 1 -r
@@ -93,14 +93,14 @@ INPUT_BUCKET="ndjson-input-sqs-${AWS_ACCOUNT_ID}"
 
 for file in ./test-data-prod/*.ndjson; do
     filename=$(basename "$file")
-    echo "  Uploading: $filename"
+    echo " Uploading: $filename"
     aws s3 cp "$file" "s3://${INPUT_BUCKET}/$filename" --region $REGION
 done
 
 UPLOAD_TIME=$(date +%s)
 
 echo ""
-echo -e "${GREEN}✓ Upload complete at $(date)${NC}"
+echo -e "${GREEN}Upload complete at $(date)${NC}"
 echo ""
 
 # Step 3: Monitor processing
@@ -122,7 +122,7 @@ TRACKED_FILES=$(aws dynamodb scan \
   --query 'Count' \
   --output text)
 
-echo "  Files tracked in DynamoDB: $TRACKED_FILES / $NUM_FILES"
+echo " Files tracked in DynamoDB: $TRACKED_FILES / $NUM_FILES"
 
 # Check manifests
 echo ""
@@ -131,7 +131,7 @@ DATE_PREFIX=$(date +%Y-%m-%d)
 MANIFESTS=$(aws s3 ls "s3://ndjson-manifests-${AWS_ACCOUNT_ID}/manifests/${DATE_PREFIX}/" \
   --region $REGION 2>/dev/null | wc -l || echo "0")
 
-echo "  Manifests created: $MANIFESTS / $EXPECTED_MANIFESTS"
+echo " Manifests created: $MANIFESTS / $EXPECTED_MANIFESTS"
 
 # Check Glue jobs
 echo ""
@@ -143,7 +143,7 @@ RUNNING_JOBS=$(aws glue get-job-runs \
   --query 'JobRuns[?JobRunState==`RUNNING`]' \
   --output json | python3 -c "import sys, json; print(len(json.load(sys.stdin)))")
 
-echo "  Jobs running: $RUNNING_JOBS"
+echo " Jobs running: $RUNNING_JOBS"
 
 # Monitor until complete
 echo ""
@@ -199,13 +199,13 @@ print(f'{running},{succeeded},{failed}')
     # Check if done
     if [ $RUNNING -eq 0 ] && [ $TOTAL -ge $EXPECTED_MANIFESTS ]; then
         echo ""
-        echo -e "${GREEN}✓ All jobs complete!${NC}"
+        echo -e "${GREEN}All jobs complete!${NC}"
         break
     fi
 
     # Check for failures
     if [ $FAILED -gt 0 ]; then
-        echo -e "${RED}⚠️  Some jobs failed - run ./check-glue-errors.sh for details${NC}"
+        echo -e "${RED}Some jobs failed - run ./check-glue-errors.sh for details${NC}"
     fi
 done
 
@@ -227,23 +227,23 @@ echo ""
 echo "Checking Parquet output..."
 OUTPUT_BUCKET="ndjson-output-sqs-${AWS_ACCOUNT_ID}"
 PARQUET_FILES=$(aws s3 ls "s3://${OUTPUT_BUCKET}/" --recursive --region $REGION | wc -l)
-echo "  Parquet files created: $PARQUET_FILES"
+echo " Parquet files created: $PARQUET_FILES"
 echo ""
 
 # Cost estimate
 echo "Estimated costs:"
 GLUE_HOURS=$(echo "scale=2; $DURATION / 3600 * $SUCCEEDED" | bc)
 GLUE_COST=$(echo "scale=2; $GLUE_HOURS * 20 * 2 * 0.44" | bc)
-echo "  Glue: \$${GLUE_COST} ($GLUE_HOURS DPU-hours)"
-echo "  Lambda: ~\$1"
-echo "  S3: ~\$5"
-echo "  Total: ~\$${GLUE_COST}"
+echo " Glue: \$${GLUE_COST} ($GLUE_HOURS DPU-hours)"
+echo " Lambda: ~\$1"
+echo " S3: ~\$5"
+echo " Total: ~\$${GLUE_COST}"
 echo ""
 
 if [ $FAILED -eq 0 ]; then
-    echo -e "${GREEN}✓ TEST PASSED - All files processed successfully${NC}"
+    echo -e "${GREEN}TEST PASSED - All files processed successfully${NC}"
 else
-    echo -e "${RED}✗ TEST FAILED - Some jobs failed${NC}"
+    echo -e "${RED}TEST FAILED - Some jobs failed${NC}"
     echo "Run ./check-glue-errors.sh for details"
 fi
 echo ""

@@ -24,12 +24,12 @@ echo -e "${YELLOW}Step 1: Finding available manifest files...${NC}"
 MANIFESTS=$(aws s3 ls "s3://${MANIFEST_BUCKET}/manifests/" --recursive --region $REGION | grep "\.json$" | awk '{print $4}' | head -5)
 
 if [ -z "$MANIFESTS" ]; then
-    echo "❌ No manifest files found in s3://${MANIFEST_BUCKET}/manifests/"
+    echo "No manifest files found in s3://${MANIFEST_BUCKET}/manifests/"
     echo ""
     echo "You need to:"
-    echo "  1. Upload test NDJSON files to the input bucket"
-    echo "  2. Wait for Lambda to create manifests"
-    echo "  3. Then run this script"
+    echo " 1. Upload test NDJSON files to the input bucket"
+    echo " 2. Wait for Lambda to create manifests"
+    echo " 3. Then run this script"
     echo ""
     exit 1
 fi
@@ -75,21 +75,21 @@ JOB_RUN_ID=$(aws glue start-job-run \
   --query 'JobRunId' \
   --output text)
 
-echo -e "${GREEN}✓ Job started successfully!${NC}"
+echo -e "${GREEN}Job started successfully!${NC}"
 echo ""
 echo "Job Run ID: $JOB_RUN_ID"
 echo "Manifest: $MANIFEST_PATH"
 echo ""
 echo "The job will:"
-echo "  1. Process the manifest file"
-echo "  2. Convert NDJSON to Parquet"
-echo "  3. Exit automatically when done"
+echo " 1. Process the manifest file"
+echo " 2. Convert NDJSON to Parquet"
+echo " 3. Exit automatically when done"
 echo ""
 echo -e "${GREEN}Estimated cost: ~\$1-5 (depending on data size)${NC}"
 echo ""
 echo "Monitor progress:"
-echo "  aws glue get-job-run --job-name $JOB_NAME --run-id $JOB_RUN_ID --region $REGION"
+echo " aws glue get-job-run --job-name $JOB_NAME --run-id $JOB_RUN_ID --region $REGION"
 echo ""
 echo "View logs (wait ~2 min for logs to appear):"
-echo "  aws logs tail /aws-glue/jobs/output --follow --log-stream-names $JOB_RUN_ID --region $REGION"
+echo " aws logs tail /aws-glue/jobs/output --follow --log-stream-names $JOB_RUN_ID --region $REGION"
 echo ""

@@ -4,11 +4,11 @@
 # Inspect executions, failures, and performance metrics
 #
 # Usage:
-#   ./stepfunctions-queries.sh                    # Show menu
-#   ./stepfunctions-queries.sh list               # List recent executions
-#   ./stepfunctions-queries.sh running            # Show running executions
-#   ./stepfunctions-queries.sh failed             # Show failed executions
-#   ./stepfunctions-queries.sh details <exec-arn> # Show execution details
+# ./stepfunctions-queries.sh # Show menu
+# ./stepfunctions-queries.sh list # List recent executions
+# ./stepfunctions-queries.sh running # Show running executions
+# ./stepfunctions-queries.sh failed # Show failed executions
+# ./stepfunctions-queries.sh details <exec-arn> # Show execution details
 
 set -e
 
@@ -48,24 +48,24 @@ show_help() {
     echo "Usage: $0 <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  list [N]              List N most recent executions (default: 10)"
-    echo "  running               Show currently running executions"
-    echo "  succeeded             Show succeeded executions"
-    echo "  failed                Show failed executions"
-    echo "  aborted               Show aborted executions"
-    echo "  details <exec-arn>    Show detailed execution info"
-    echo "  history <exec-arn>    Show execution event history"
-    echo "  input <exec-arn>      Show execution input"
-    echo "  output <exec-arn>     Show execution output"
-    echo "  errors                Show error summary from recent failures"
-    echo "  stats                 Show execution statistics"
-    echo "  stop <exec-arn>       Stop a running execution"
-    echo "  stop-all              Stop all running executions"
+    echo " list [N] List N most recent executions (default: 10)"
+    echo " running Show currently running executions"
+    echo " succeeded Show succeeded executions"
+    echo " failed Show failed executions"
+    echo " aborted Show aborted executions"
+    echo " details <exec-arn> Show detailed execution info"
+    echo " history <exec-arn> Show execution event history"
+    echo " input <exec-arn> Show execution input"
+    echo " output <exec-arn> Show execution output"
+    echo " errors Show error summary from recent failures"
+    echo " stats Show execution statistics"
+    echo " stop <exec-arn> Stop a running execution"
+    echo " stop-all Stop all running executions"
     echo ""
     echo "Examples:"
-    echo "  $0 list 20"
-    echo "  $0 failed"
-    echo "  $0 details arn:aws:states:us-east-1:123456789:execution:..."
+    echo " $0 list 20"
+    echo " $0 failed"
+    echo " $0 details arn:aws:states:us-east-1:123456789:execution:..."
     echo ""
 }
 
@@ -99,10 +99,10 @@ if not executions:
 
 # Color codes
 colors = {
-    'RUNNING': '\033[1;33m',   # Yellow
+    'RUNNING': '\033[1;33m', # Yellow
     'SUCCEEDED': '\033[0;32m', # Green
-    'FAILED': '\033[0;31m',    # Red
-    'ABORTED': '\033[0;35m',   # Purple
+    'FAILED': '\033[0;31m', # Red
+    'ABORTED': '\033[0;35m', # Purple
     'TIMED_OUT': '\033[0;31m', # Red
 }
 NC = '\033[0m'
@@ -154,10 +154,10 @@ import sys, json
 
 data = json.load(sys.stdin)
 
-print(f'Name:       {data.get(\"name\", \"N/A\")}')
-print(f'Status:     {data.get(\"status\", \"N/A\")}')
-print(f'Start:      {data.get(\"startDate\", \"N/A\")}')
-print(f'Stop:       {data.get(\"stopDate\", \"N/A\")}')
+print(f'Name: {data.get(\"name\", \"N/A\")}')
+print(f'Status: {data.get(\"status\", \"N/A\")}')
+print(f'Start: {data.get(\"startDate\", \"N/A\")}')
+print(f'Stop: {data.get(\"stopDate\", \"N/A\")}')
 print()
 
 # Parse and show input
@@ -183,8 +183,8 @@ if 'output' in data:
 # Show error if failed
 if data.get('status') == 'FAILED':
     print('Error:')
-    print(f'  Cause: {data.get(\"cause\", \"N/A\")}')
-    print(f'  Error: {data.get(\"error\", \"N/A\")}')
+    print(f' Cause: {data.get(\"cause\", \"N/A\")}')
+    print(f' Error: {data.get(\"error\", \"N/A\")}')
 "
 }
 
@@ -259,7 +259,7 @@ if not executions:
 print(f'Found {len(executions)} failed executions:')
 print()
 
-for ex in executions[:5]:  # Only show details for first 5
+for ex in executions[:5]: # Only show details for first 5
     arn = ex['executionArn']
     name = ex['name']
 
@@ -278,8 +278,8 @@ for ex in executions[:5]:  # Only show details for first 5
         cause = details.get('cause', 'N/A')
 
         print(f'Execution: {name}')
-        print(f'  Error: {error}')
-        print(f'  Cause: {cause[:200]}...' if len(cause) > 200 else f'  Cause: {cause}')
+        print(f' Error: {error}')
+        print(f' Cause: {cause[:200]}...' if len(cause) > 200 else f' Cause: {cause}')
         print()
 "
 }
@@ -296,14 +296,14 @@ show_stats() {
             --output json | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('executions',[])))")
 
         case $status in
-            RUNNING)   color=$YELLOW ;;
+            RUNNING) color=$YELLOW ;;
             SUCCEEDED) color=$GREEN ;;
-            FAILED)    color=$RED ;;
-            ABORTED)   color=$YELLOW ;;
+            FAILED) color=$RED ;;
+            ABORTED) color=$YELLOW ;;
             TIMED_OUT) color=$RED ;;
         esac
 
-        echo -e "  ${color}${status}${NC}: $count"
+        echo -e " ${color}${status}${NC}: $count"
     done
     echo ""
 }

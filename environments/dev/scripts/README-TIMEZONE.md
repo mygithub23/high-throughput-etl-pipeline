@@ -21,7 +21,7 @@ Lambda extracts the date prefix from the NDJSON filename:
 # From lambda_manifest_builder.py:375-397
 match = re.search(r'(\d{4}-\d{2}-\d{2})', key)
 if match:
-    date_prefix = match.group(1)  # e.g., "2026-01-30"
+    date_prefix = match.group(1) # e.g., "2026-01-30"
 else:
     # Fallback: use UTC current date
     date_prefix = datetime.now(timezone.utc).strftime('%Y-%m-%d')
@@ -33,12 +33,12 @@ Lambda determines if a file is from a previous day:
 
 ```python
 # From lambda_manifest_builder.py:466-470
-today = datetime.now(timezone.utc).strftime('%Y-%m-%d')  # UTC!
+today = datetime.now(timezone.utc).strftime('%Y-%m-%d') # UTC!
 is_previous_day = date_prefix < today
 
 if is_previous_day:
     # Trigger immediate flush (don't wait for 10 files)
-    logger.info(f"🔄 Triggering end-of-day flush for orphaned files")
+    logger.info(f"Triggering end-of-day flush for orphaned files")
 ```
 
 ## The Timezone Problem
@@ -46,7 +46,7 @@ if is_previous_day:
 ### Bad Example: Using Local Time
 
 ```bash
-# ❌ WRONG: Uses EST (UTC-5)
+# WRONG: Uses EST (UTC-5)
 DATE=$(date +%Y-%m-%d)
 FILENAME="${DATE}-test0001.ndjson"
 ```
@@ -61,7 +61,7 @@ FILENAME="${DATE}-test0001.ndjson"
 ### Correct Example: Using UTC
 
 ```bash
-# ✅ CORRECT: Uses UTC with -u flag
+# CORRECT: Uses UTC with -u flag
 DATE=$(date -u +%Y-%m-%d)
 FILENAME="${DATE}-test0001.ndjson"
 ```
@@ -111,7 +111,7 @@ Our `create-test-files.sh` script uses UTC:
 
 ```bash
 cd environments/dev/scripts
-bash create-test-files.sh  # Creates files with UTC dates
+bash create-test-files.sh # Creates files with UTC dates
 ```
 
 ### 4. Manual File Creation
@@ -214,13 +214,13 @@ DATE=$(date -u +%Y-%m-%d)
 
 ## Summary
 
-✅ **DO:**
+**DO:**
 - Use `date -u` for all date operations
 - Create files with UTC date prefix
 - Document that pipeline uses UTC
 - Test file creation around midnight UTC
 
-❌ **DON'T:**
+**DON'T:**
 - Use `date` without `-u` flag
 - Mix timezones
 - Assume local time = UTC

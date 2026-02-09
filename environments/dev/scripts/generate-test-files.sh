@@ -4,11 +4,11 @@
 # Creates NDJSON files with configurable size and uploads to S3
 #
 # Usage:
-#   ./generate-test-files.sh                      # Generate 10 files, ~1MB each
-#   ./generate-test-files.sh 20                   # Generate 20 files
-#   ./generate-test-files.sh 20 5                 # Generate 20 files, ~5MB each
-#   ./generate-test-files.sh 20 5 2025-12-25      # With custom date prefix
-#   ./generate-test-files.sh 20 5 2025-12-25 --upload  # Generate and upload
+# ./generate-test-files.sh # Generate 10 files, ~1MB each
+# ./generate-test-files.sh 20 # Generate 20 files
+# ./generate-test-files.sh 20 5 # Generate 20 files, ~5MB each
+# ./generate-test-files.sh 20 5 2025-12-25 # With custom date prefix
+# ./generate-test-files.sh 20 5 2025-12-25 --upload # Generate and upload
 
 set -e
 
@@ -42,12 +42,12 @@ OUTPUT_DIR="./test-data-${DATE_PREFIX}"
 echo -e "${GREEN}Generate Test NDJSON Files${NC}"
 echo ""
 echo "Configuration:"
-echo "  Files to generate: $NUM_FILES"
-echo "  Target size per file: ~${TARGET_SIZE_MB} MB"
-echo "  Records per file: ~$RECORDS_PER_FILE"
-echo "  Date prefix: $DATE_PREFIX"
-echo "  Output directory: $OUTPUT_DIR"
-echo "  Upload to S3: ${UPLOAD_FLAG:-no}"
+echo " Files to generate: $NUM_FILES"
+echo " Target size per file: ~${TARGET_SIZE_MB} MB"
+echo " Records per file: ~$RECORDS_PER_FILE"
+echo " Date prefix: $DATE_PREFIX"
+echo " Output directory: $OUTPUT_DIR"
+echo " Upload to S3: ${UPLOAD_FLAG:-no}"
 echo ""
 
 # Create output directory
@@ -62,7 +62,7 @@ for i in $(seq -f "%04g" 1 $NUM_FILES); do
     FILEPATH="$OUTPUT_DIR/$FILENAME"
 
     # Generate NDJSON records
-    > "$FILEPATH"  # Clear file
+    > "$FILEPATH" # Clear file
 
     for j in $(seq 1 $RECORDS_PER_FILE); do
         # Generate varied test data
@@ -81,7 +81,7 @@ EOF
     FILE_SIZE=$(stat -f%z "$FILEPATH" 2>/dev/null || stat -c%s "$FILEPATH" 2>/dev/null)
     FILE_SIZE_MB=$(echo "scale=2; $FILE_SIZE / 1048576" | bc)
 
-    echo -e "  ${GREEN}✓${NC} $FILENAME (${FILE_SIZE_MB} MB, $RECORDS_PER_FILE records)"
+    echo -e " ${GREEN}${NC} $FILENAME (${FILE_SIZE_MB} MB, $RECORDS_PER_FILE records)"
 done
 
 echo ""
@@ -91,22 +91,22 @@ TOTAL_SIZE=$(du -sh "$OUTPUT_DIR" | cut -f1)
 TOTAL_FILES=$(ls -1 "$OUTPUT_DIR"/*.ndjson 2>/dev/null | wc -l)
 
 echo -e "${GREEN}Generation Complete${NC}"
-echo "  Total files: $TOTAL_FILES"
-echo "  Total size: $TOTAL_SIZE"
-echo "  Location: $OUTPUT_DIR"
+echo " Total files: $TOTAL_FILES"
+echo " Total size: $TOTAL_SIZE"
+echo " Location: $OUTPUT_DIR"
 echo ""
 
 # Upload if requested
 if [ "$UPLOAD_FLAG" == "--upload" ]; then
     echo -e "${YELLOW}Uploading to S3...${NC}"
-    echo "  Target: s3://${INPUT_BUCKET}/${INPUT_PREFIX}/"
+    echo " Target: s3://${INPUT_BUCKET}/${INPUT_PREFIX}/"
 
     aws s3 cp "$OUTPUT_DIR/" "s3://${INPUT_BUCKET}/${INPUT_PREFIX}/" \
         --recursive \
         --region "$REGION" \
         --only-show-errors
 
-    echo -e "${GREEN}✓ Upload complete${NC}"
+    echo -e "${GREEN}Upload complete${NC}"
     echo ""
 
     echo "Verify uploaded files:"
@@ -115,15 +115,15 @@ if [ "$UPLOAD_FLAG" == "--upload" ]; then
     echo ""
 
     echo -e "${CYAN}Next steps:${NC}"
-    echo "  1. Wait 1-2 minutes for Lambda to process"
-    echo "  2. Check DynamoDB: ./dynamodb-queries.sh status"
-    echo "  3. Check Step Functions: ./stepfunctions-queries.sh running"
+    echo " 1. Wait 1-2 minutes for Lambda to process"
+    echo " 2. Check DynamoDB: ./dynamodb-queries.sh status"
+    echo " 3. Check Step Functions: ./stepfunctions-queries.sh running"
 else
     echo -e "${CYAN}Next steps:${NC}"
-    echo "  1. Review files: ls -lh $OUTPUT_DIR"
-    echo "  2. Upload to S3:"
-    echo "     aws s3 cp $OUTPUT_DIR/ s3://${INPUT_BUCKET}/${INPUT_PREFIX}/ --recursive"
-    echo "  Or re-run with --upload flag:"
-    echo "     $0 $NUM_FILES $TARGET_SIZE_MB $DATE_PREFIX --upload"
+    echo " 1. Review files: ls -lh $OUTPUT_DIR"
+    echo " 2. Upload to S3:"
+    echo " aws s3 cp $OUTPUT_DIR/ s3://${INPUT_BUCKET}/${INPUT_PREFIX}/ --recursive"
+    echo " Or re-run with --upload flag:"
+    echo " $0 $NUM_FILES $TARGET_SIZE_MB $DATE_PREFIX --upload"
 fi
 echo ""

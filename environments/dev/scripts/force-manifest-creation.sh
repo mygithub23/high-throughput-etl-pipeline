@@ -10,7 +10,7 @@ REGION="us-east-1"
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 TABLE_NAME="ndjson-parquet-sqs-file-tracking-${ENV}"
 INPUT_BUCKET="ndjson-input-sqs-${AWS_ACCOUNT_ID}-${ENV}"
-INPUT_PREFIX="pipeline/input"  # From terraform.tfvars
+INPUT_PREFIX="pipeline/input" # From terraform.tfvars
 LAMBDA_FUNCTION="ndjson-parquet-manifest-builder-${ENV}"
 
 CYAN='\033[0;36m'
@@ -20,7 +20,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo -e "${CYAN}========================================${NC}"
-echo -e "${CYAN}   Force Manifest Creation${NC}"
+echo -e "${CYAN} Force Manifest Creation${NC}"
 echo -e "${CYAN}========================================${NC}"
 echo ""
 
@@ -43,7 +43,7 @@ echo "Total pending files: $PENDING_COUNT"
 echo ""
 
 if [ "$PENDING_COUNT" -lt 10 ]; then
-    echo -e "${YELLOW}⚠️  Less than 10 files pending (threshold for manifest creation)${NC}"
+    echo -e "${YELLOW}Less than 10 files pending (threshold for manifest creation)${NC}"
     echo "No action needed - wait for more files to arrive"
     exit 0
 fi
@@ -75,7 +75,7 @@ else:
 ")
 
 if [ -z "$SAMPLE_FILE" ]; then
-    echo -e "${RED}✗ Could not find any pending files in DynamoDB${NC}"
+    echo -e "${RED}Could not find any pending files in DynamoDB${NC}"
     exit 1
 fi
 
@@ -136,12 +136,12 @@ RESULT=$(aws lambda invoke \
 
 # Check result
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Lambda invoked successfully${NC}"
+    echo -e "${GREEN}Lambda invoked successfully${NC}"
     echo ""
 
     # Check if there was a function error
     if echo "$RESULT" | grep -q "FunctionError"; then
-        echo -e "${RED}✗ Lambda execution failed${NC}"
+        echo -e "${RED}Lambda execution failed${NC}"
         echo "Error details:"
         echo "$RESULT"
         echo ""
@@ -157,10 +157,10 @@ if [ $? -eq 0 ]; then
 
     # Check for error in response
     if grep -q "errorMessage" /tmp/lambda-response.json; then
-        echo -e "${YELLOW}⚠️  Lambda returned an error${NC}"
+        echo -e "${YELLOW}Lambda returned an error${NC}"
     fi
 else
-    echo -e "${RED}✗ Lambda invocation failed${NC}"
+    echo -e "${RED}Lambda invocation failed${NC}"
     echo "$RESULT"
     exit 1
 fi
@@ -190,23 +190,23 @@ echo "Files processed: $PROCESSED"
 echo ""
 
 if [ "$PROCESSED" -gt 0 ]; then
-    echo -e "${GREEN}✓ Success! $PROCESSED files were processed into manifests${NC}"
+    echo -e "${GREEN}Success! $PROCESSED files were processed into manifests${NC}"
     echo ""
     echo "Check manifest creation:"
-    echo "  bash debug-glue-output.sh"
+    echo " bash debug-glue-output.sh"
     echo ""
     echo "Monitor pipeline:"
-    echo "  bash trace-pipeline.sh"
+    echo " bash trace-pipeline.sh"
 else
-    echo -e "${YELLOW}⚠️  No files were processed${NC}"
+    echo -e "${YELLOW}No files were processed${NC}"
     echo ""
     echo "Possible causes:"
-    echo "  1. LOCK record is still active (check with: bash check-locks.sh)"
-    echo "  2. Lambda retry loop didn't complete"
-    echo "  3. Files are from different dates and didn't reach threshold"
+    echo " 1. LOCK record is still active (check with: bash check-locks.sh)"
+    echo " 2. Lambda retry loop didn't complete"
+    echo " 3. Files are from different dates and didn't reach threshold"
     echo ""
     echo "Check Lambda logs:"
-    echo "  aws logs tail /aws/lambda/$LAMBDA_FUNCTION --follow --region $REGION"
+    echo " aws logs tail /aws/lambda/$LAMBDA_FUNCTION --follow --region $REGION"
 fi
 
 echo -e "${CYAN}========================================${NC}"

@@ -80,10 +80,10 @@ This will:
 
 ### Individual File Records
 ```
-pending → manifested → (stays manifested)
-   ↓           ↓
- Lambda    Lambda creates manifest
-creates   + marks files as "manifested"
+pending -> manifested -> (stays manifested)
+   ↓ ↓
+ Lambda Lambda creates manifest
+creates + marks files as "manifested"
 record
 ```
 
@@ -91,8 +91,8 @@ Individual NDJSON files stay in "manifested" status forever. They are never upda
 
 ### MANIFEST Meta-Records
 ```
-Created by Lambda → Updated by Step Functions
-    (pending)              (processing → completed/failed)
+Created by Lambda -> Updated by Step Functions
+    (pending) (processing -> completed/failed)
 ```
 
 MANIFEST records track the batch processing:
@@ -110,9 +110,9 @@ For 130 input files with threshold of 10 files/manifest:
 - **13 Parquet outputs**: One per successful Glue job
 
 If you see:
-- Many "manifested" files ✓ Normal
-- Few "completed" MANIFEST records ✗ Problem - Step Functions not updating
-- Many "pending" files with no recent manifests ✗ Problem - LOCK stuck
+- Many "manifested" files Normal
+- Few "completed" MANIFEST records Problem - Step Functions not updating
+- Many "pending" files with no recent manifests Problem - LOCK stuck
 
 ## Prevention
 

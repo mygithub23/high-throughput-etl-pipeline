@@ -4,11 +4,11 @@
 # Inspect job runs, errors, metrics, and logs
 #
 # Usage:
-#   ./glue-queries.sh                     # Show menu
-#   ./glue-queries.sh list                # List recent job runs
-#   ./glue-queries.sh running             # Show running jobs
-#   ./glue-queries.sh failed              # Show failed jobs
-#   ./glue-queries.sh logs <run-id>       # Show job logs
+# ./glue-queries.sh # Show menu
+# ./glue-queries.sh list # List recent job runs
+# ./glue-queries.sh running # Show running jobs
+# ./glue-queries.sh failed # Show failed jobs
+# ./glue-queries.sh logs <run-id> # Show job logs
 
 set -e
 
@@ -32,23 +32,23 @@ show_help() {
     echo "Usage: $0 <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  list [N]              List N most recent job runs (default: 10)"
-    echo "  running               Show currently running jobs"
-    echo "  succeeded             Show succeeded jobs"
-    echo "  failed                Show failed jobs"
-    echo "  details <run-id>      Show detailed job run info"
-    echo "  logs <run-id>         Show CloudWatch logs for a job run"
-    echo "  errors                Show error messages from recent failures"
-    echo "  stats                 Show job run statistics"
-    echo "  metrics <run-id>      Show job metrics (workers, duration, etc.)"
-    echo "  stop <run-id>         Stop a running job"
-    echo "  stop-all              Stop all running jobs"
-    echo "  config                Show job configuration"
+    echo " list [N] List N most recent job runs (default: 10)"
+    echo " running Show currently running jobs"
+    echo " succeeded Show succeeded jobs"
+    echo " failed Show failed jobs"
+    echo " details <run-id> Show detailed job run info"
+    echo " logs <run-id> Show CloudWatch logs for a job run"
+    echo " errors Show error messages from recent failures"
+    echo " stats Show job run statistics"
+    echo " metrics <run-id> Show job metrics (workers, duration, etc.)"
+    echo " stop <run-id> Stop a running job"
+    echo " stop-all Stop all running jobs"
+    echo " config Show job configuration"
     echo ""
     echo "Examples:"
-    echo "  $0 list 20"
-    echo "  $0 failed"
-    echo "  $0 logs jr_abc123def456"
+    echo " $0 list 20"
+    echo " $0 failed"
+    echo " $0 logs jr_abc123def456"
     echo ""
 }
 
@@ -134,12 +134,12 @@ if not runs:
 
 for run in runs:
     print(f\"Run ID: {run['Id']}\")
-    print(f\"  Started: {run.get('StartedOn', 'N/A')}\")
-    print(f\"  Duration: {run.get('ExecutionTime', 0)}s\")
-    print(f\"  Workers: {run.get('NumberOfWorkers', 'N/A')}\")
+    print(f\" Started: {run.get('StartedOn', 'N/A')}\")
+    print(f\" Duration: {run.get('ExecutionTime', 0)}s\")
+    print(f\" Workers: {run.get('NumberOfWorkers', 'N/A')}\")
 
     if run['JobRunState'] == 'FAILED':
-        print(f\"  Error: {run.get('ErrorMessage', 'N/A')[:100]}...\")
+        print(f\" Error: {run.get('ErrorMessage', 'N/A')[:100]}...\")
     print()
 
 print(f'Total: {len(runs)} runs')
@@ -162,15 +162,15 @@ import sys, json
 data = json.load(sys.stdin)
 run = data.get('JobRun', {})
 
-print(f\"Run ID:          {run.get('Id', 'N/A')}\")
-print(f\"Status:          {run.get('JobRunState', 'N/A')}\")
-print(f\"Started:         {run.get('StartedOn', 'N/A')}\")
-print(f\"Completed:       {run.get('CompletedOn', 'N/A')}\")
-print(f\"Execution Time:  {run.get('ExecutionTime', 0)} seconds\")
-print(f\"Workers:         {run.get('NumberOfWorkers', 'N/A')}\")
-print(f\"Worker Type:     {run.get('WorkerType', 'N/A')}\")
-print(f\"Max Capacity:    {run.get('MaxCapacity', 'N/A')} DPUs\")
-print(f\"Glue Version:    {run.get('GlueVersion', 'N/A')}\")
+print(f\"Run ID: {run.get('Id', 'N/A')}\")
+print(f\"Status: {run.get('JobRunState', 'N/A')}\")
+print(f\"Started: {run.get('StartedOn', 'N/A')}\")
+print(f\"Completed: {run.get('CompletedOn', 'N/A')}\")
+print(f\"Execution Time: {run.get('ExecutionTime', 0)} seconds\")
+print(f\"Workers: {run.get('NumberOfWorkers', 'N/A')}\")
+print(f\"Worker Type: {run.get('WorkerType', 'N/A')}\")
+print(f\"Max Capacity: {run.get('MaxCapacity', 'N/A')} DPUs\")
+print(f\"Glue Version: {run.get('GlueVersion', 'N/A')}\")
 print()
 
 # Arguments
@@ -178,13 +178,13 @@ args = run.get('Arguments', {})
 if args:
     print('Arguments:')
     for k, v in args.items():
-        print(f'  {k}: {v}')
+        print(f' {k}: {v}')
     print()
 
 # Error message
 if run.get('JobRunState') == 'FAILED':
     print('Error Message:')
-    print(f\"  {run.get('ErrorMessage', 'N/A')}\")
+    print(f\" {run.get('ErrorMessage', 'N/A')}\")
 "
 }
 
@@ -272,8 +272,8 @@ print()
 
 for run in failed:
     print(f\"Run ID: {run['Id']}\")
-    print(f\"  Started: {run.get('StartedOn', 'N/A')}\")
-    print(f\"  Error: {run.get('ErrorMessage', 'No error message')}\")
+    print(f\" Started: {run.get('StartedOn', 'N/A')}\")
+    print(f\" Error: {run.get('ErrorMessage', 'No error message')}\")
     print()
 "
 }
@@ -314,14 +314,14 @@ NC = '\033[0m'
 print('Status Counts:')
 for status, count in status_counts.most_common():
     color = colors.get(status, '')
-    print(f'  {color}{status}{NC}: {count}')
+    print(f' {color}{status}{NC}: {count}')
 print()
 
 if durations:
     print('Duration Statistics:')
-    print(f'  Average: {sum(durations)/len(durations):.1f}s')
-    print(f'  Min: {min(durations)}s')
-    print(f'  Max: {max(durations)}s')
+    print(f' Average: {sum(durations)/len(durations):.1f}s')
+    print(f' Min: {min(durations)}s')
+    print(f' Max: {max(durations)}s')
     print()
 
 # Success rate
@@ -347,15 +347,15 @@ import sys, json
 data = json.load(sys.stdin)
 job = data.get('Job', {})
 
-print(f\"Name:              {job.get('Name', 'N/A')}\")
-print(f\"Role:              {job.get('Role', 'N/A').split('/')[-1]}\")
-print(f\"Glue Version:      {job.get('GlueVersion', 'N/A')}\")
-print(f\"Worker Type:       {job.get('WorkerType', 'N/A')}\")
+print(f\"Name: {job.get('Name', 'N/A')}\")
+print(f\"Role: {job.get('Role', 'N/A').split('/')[-1]}\")
+print(f\"Glue Version: {job.get('GlueVersion', 'N/A')}\")
+print(f\"Worker Type: {job.get('WorkerType', 'N/A')}\")
 print(f\"Number of Workers: {job.get('NumberOfWorkers', 'N/A')}\")
-print(f\"Max Capacity:      {job.get('MaxCapacity', 'N/A')} DPUs\")
-print(f\"Timeout:           {job.get('Timeout', 'N/A')} minutes\")
-print(f\"Max Retries:       {job.get('MaxRetries', 'N/A')}\")
-print(f\"Max Concurrent:    {job.get('ExecutionProperty', {}).get('MaxConcurrentRuns', 'N/A')}\")
+print(f\"Max Capacity: {job.get('MaxCapacity', 'N/A')} DPUs\")
+print(f\"Timeout: {job.get('Timeout', 'N/A')} minutes\")
+print(f\"Max Retries: {job.get('MaxRetries', 'N/A')}\")
+print(f\"Max Concurrent: {job.get('ExecutionProperty', {}).get('MaxConcurrentRuns', 'N/A')}\")
 print()
 
 # Default arguments
@@ -363,7 +363,7 @@ args = job.get('DefaultArguments', {})
 if args:
     print('Default Arguments:')
     for k, v in sorted(args.items()):
-        print(f'  {k}: {v}')
+        print(f' {k}: {v}')
 "
 }
 

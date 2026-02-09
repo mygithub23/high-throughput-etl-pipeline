@@ -4,11 +4,11 @@
 # This script helps recover from pipeline failures
 #
 # Usage:
-#   ./reprocess-failed.sh list-failed       # List failed Step Function executions
-#   ./reprocess-failed.sh list-pending      # List pending files by date
-#   ./reprocess-failed.sh retry-failed      # Retry all failed executions
-#   ./reprocess-failed.sh trigger-flush     # Upload a dummy file to trigger orphan flush
-#   ./reprocess-failed.sh reset-manifested  # Reset manifested files back to pending
+# ./reprocess-failed.sh list-failed # List failed Step Function executions
+# ./reprocess-failed.sh list-pending # List pending files by date
+# ./reprocess-failed.sh retry-failed # Retry all failed executions
+# ./reprocess-failed.sh trigger-flush # Upload a dummy file to trigger orphan flush
+# ./reprocess-failed.sh reset-manifested # Reset manifested files back to pending
 
 set -e
 
@@ -33,13 +33,13 @@ show_help() {
     echo "Usage: $0 <command>"
     echo ""
     echo "Commands:"
-    echo "  list-failed        List all failed Step Function executions"
-    echo "  list-pending       List pending files grouped by date"
-    echo "  list-manifested    List manifested files grouped by date"
-    echo "  retry-failed       Retry all failed Step Function executions"
-    echo "  trigger-flush      Upload a test file to trigger orphan flush"
-    echo "  reset-manifested   Reset manifested files back to pending status"
-    echo "  reset-date <date>  Reset all files for a specific date to pending"
+    echo " list-failed List all failed Step Function executions"
+    echo " list-pending List pending files grouped by date"
+    echo " list-manifested List manifested files grouped by date"
+    echo " retry-failed Retry all failed Step Function executions"
+    echo " trigger-flush Upload a test file to trigger orphan flush"
+    echo " reset-manifested Reset manifested files back to pending status"
+    echo " reset-date <date> Reset all files for a specific date to pending"
     echo ""
 }
 
@@ -79,9 +79,9 @@ for i, ex in enumerate(executions, 1):
         stop = datetime.fromtimestamp(stop).strftime('%Y-%m-%d %H:%M:%S')
 
     print(f'{i}. {name}')
-    print(f'   Started: {start}')
-    print(f'   Stopped: {stop}')
-    print(f'   ARN: {arn}')
+    print(f' Started: {start}')
+    print(f' Stopped: {stop}')
+    print(f' ARN: {arn}')
     print()
 "
 }
@@ -117,10 +117,10 @@ print()
 for date in sorted(by_date.keys()):
     files = by_date[date]
     print(f'{date}: {len(files)} files')
-    for f in files[:3]:  # Show first 3
-        print(f'  - {f}')
+    for f in files[:3]: # Show first 3
+        print(f' - {f}')
     if len(files) > 3:
-        print(f'  ... and {len(files) - 3} more')
+        print(f' ... and {len(files) - 3} more')
     print()
 "
 }
@@ -209,7 +209,7 @@ for ex in executions:
     input_data = details.get('input', '{}')
 
     print(f'Retrying: {name}')
-    print(f'  Input: {input_data[:100]}...')
+    print(f' Input: {input_data[:100]}...')
 
     # Start new execution
     retry_result = subprocess.run(
@@ -223,9 +223,9 @@ for ex in executions:
 
     if retry_result.returncode == 0:
         new_arn = json.loads(retry_result.stdout).get('executionArn', 'unknown')
-        print(f'  ✓ Started: {new_arn}')
+        print(f' Started: {new_arn}')
     else:
-        print(f'  ✗ Failed: {retry_result.stderr}')
+        print(f' Failed: {retry_result.stderr}')
     print()
 "
 }
@@ -246,7 +246,7 @@ import random
 import string
 
 # Generate ~3.5MB of NDJSON data
-target_size = 3.5 * 1024 * 1024  # 3.5 MB
+target_size = 3.5 * 1024 * 1024 # 3.5 MB
 current_size = 0
 line_count = 0
 
@@ -276,11 +276,11 @@ print(f'Generated {line_count} records ({current_size / (1024*1024):.2f} MB)')
     rm -f "${TEST_FILE}"
 
     echo ""
-    echo -e "${GREEN}✓ Test file uploaded!${NC}"
+    echo -e "${GREEN}Test file uploaded!${NC}"
     echo "This will trigger the Lambda which will:"
-    echo "  1. Process the test file"
-    echo "  2. Check for orphaned files from previous days"
-    echo "  3. Create manifests for any pending files"
+    echo " 1. Process the test file"
+    echo " 2. Check for orphaned files from previous days"
+    echo " 3. Create manifests for any pending files"
     echo ""
     echo "Check Lambda logs in a few seconds to verify the flush."
 }
@@ -335,9 +335,9 @@ for item in items:
     if result.returncode == 0:
         success += 1
         if success % 50 == 0:
-            print(f'  Reset {success}/{len(items)}...')
+            print(f' Reset {success}/{len(items)}...')
 
-print(f'✓ Reset {success} files to pending status')
+print(f'Reset {success} files to pending status')
 "
 }
 
@@ -385,7 +385,7 @@ for item in items:
         continue
 
     if current_status == 'pending':
-        continue  # Already pending
+        continue # Already pending
 
     # Update item
     result = subprocess.run([
@@ -401,7 +401,7 @@ for item in items:
     if result.returncode == 0:
         success += 1
 
-print(f'✓ Reset {success} files to pending status')
+print(f'Reset {success} files to pending status')
 "
 }
 

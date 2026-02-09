@@ -57,7 +57,7 @@ if [ -z "$MAPPING_UUID" ]; then
       --maximum-batching-window-in-seconds 30 \
       --region $REGION
 
-    echo -e "${GREEN}✓ Event source mapping created${NC}"
+    echo -e "${GREEN}Event source mapping created${NC}"
 elif [ "$MAPPING_STATE" == "Disabled" ]; then
     echo -e "${YELLOW}Mapping exists but is disabled. Enabling...${NC}"
 
@@ -66,9 +66,9 @@ elif [ "$MAPPING_STATE" == "Disabled" ]; then
       --enabled \
       --region $REGION
 
-    echo -e "${GREEN}✓ Event source mapping enabled${NC}"
+    echo -e "${GREEN}Event source mapping enabled${NC}"
 elif [ "$MAPPING_STATE" == "Enabled" ]; then
-    echo -e "${GREEN}✓ Event source mapping already enabled${NC}"
+    echo -e "${GREEN}Event source mapping already enabled${NC}"
     echo ""
     echo "Mapping details:"
     echo "$MAPPINGS" | python -c "import sys, json; data=json.load(sys.stdin); print(json.dumps(data['EventSourceMappings'][0], indent=2))"
@@ -94,6 +94,6 @@ echo ""
 echo -e "${GREEN}Trigger configuration complete${NC}"
 echo ""
 echo "Next steps:"
-echo "  1. Wait 1-2 minutes for Lambda to process queued messages"
-echo "  2. Check logs: ./check-lambda-logs.sh"
-echo "  3. Check for manifests: aws s3 ls s3://ndjson-manifests-${AWS_ACCOUNT_ID}/manifests/ --recursive"
+echo " 1. Wait 1-2 minutes for Lambda to process queued messages"
+echo " 2. Check logs: ./check-lambda-logs.sh"
+echo " 3. Check for manifests: aws s3 ls s3://ndjson-manifests-${AWS_ACCOUNT_ID}/manifests/ --recursive"

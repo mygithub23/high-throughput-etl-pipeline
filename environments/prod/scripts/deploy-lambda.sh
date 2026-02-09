@@ -22,10 +22,10 @@ echo ""
 
 # Confirmation
 echo -e "${YELLOW}This will deploy PRODUCTION Lambda with:${NC}"
-echo "  - INFO logging only"
-echo "  - File-count batching (100 files/manifest)"
-echo "  - Optimized for 3.5-4.5 GB files"
-echo "  - Expected: 338K files/day"
+echo " - INFO logging only"
+echo " - File-count batching (100 files/manifest)"
+echo " - Optimized for 3.5-4.5 GB files"
+echo " - Expected: 338K files/day"
 echo ""
 read -p "Continue with production deployment? (y/N) " -n 1 -r
 echo
@@ -42,7 +42,7 @@ if [ -f lambda.zip ]; then
 fi
 
 zip -r lambda.zip lambda_manifest_builder.py
-echo "✓ Package created: lambda.zip"
+echo "Package created: lambda.zip"
 echo ""
 
 # Deploy code
@@ -54,7 +54,7 @@ aws lambda update-function-code \
   --query '{FunctionName:FunctionName,LastModified:LastModified,CodeSize:CodeSize}' \
   --output table
 
-echo "✓ Code deployed"
+echo "Code deployed"
 echo ""
 
 # Update configuration
@@ -80,7 +80,7 @@ aws lambda update-function-configuration \
   --query '{FunctionName:FunctionName,MemorySize:MemorySize,Timeout:Timeout}' \
   --output table
 
-echo "✓ Configuration updated"
+echo "Configuration updated"
 echo ""
 
 # Wait for update
@@ -96,21 +96,21 @@ aws lambda get-function-configuration \
   --output table
 
 echo ""
-echo -e "${GREEN}✓ Production Lambda Deployed Successfully!${NC}"
+echo -e "${GREEN}Production Lambda Deployed Successfully!${NC}"
 echo ""
 
 echo "Configuration:"
-echo "  MAX_FILES_PER_MANIFEST: 100"
-echo "  MAX_BATCH_SIZE_GB: 500"
-echo "  EXPECTED_FILE_SIZE_MB: 3500 (3.5 GB)"
-echo "  Memory: 1024 MB"
-echo "  Timeout: 300 seconds"
+echo " MAX_FILES_PER_MANIFEST: 100"
+echo " MAX_BATCH_SIZE_GB: 500"
+echo " EXPECTED_FILE_SIZE_MB: 3500 (3.5 GB)"
+echo " Memory: 1024 MB"
+echo " Timeout: 300 seconds"
 echo ""
 
 echo "Next steps:"
-echo "  1. Deploy Glue job: ./deploy-glue.sh"
-echo "  2. Test with production data: ./test-production.sh"
-echo "  3. Monitor: ./monitor-pipeline.sh"
+echo " 1. Deploy Glue job: ./deploy-glue.sh"
+echo " 2. Test with production data: ./test-production.sh"
+echo " 3. Monitor: ./monitor-pipeline.sh"
 echo ""
 
 # Cleanup

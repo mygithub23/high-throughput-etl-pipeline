@@ -24,10 +24,10 @@ echo ""
 
 # Confirmation
 echo -e "${YELLOW}This will deploy PRODUCTION Glue with:${NC}"
-echo "  - Batch mode (glueetl)"
-echo "  - 30 concurrent jobs"
-echo "  - 20 workers per job (G.2X)"
-echo "  - Optimized for 100 files × 3.5-4.5 GB"
+echo " - Batch mode (glueetl)"
+echo " - 30 concurrent jobs"
+echo " - 20 workers per job (G.2X)"
+echo " - Optimized for 100 files × 3.5-4.5 GB"
 echo ""
 read -p "Continue with production deployment? (y/N) " -n 1 -r
 echo
@@ -40,7 +40,7 @@ fi
 echo -e "${YELLOW}Step 1: Uploading Glue script to S3...${NC}"
 cd ../glue
 aws s3 cp glue_batch_job.py "s3://${DEPLOYMENT_BUCKET}/${SCRIPT_KEY}" --region $REGION
-echo "✓ Script uploaded: s3://${DEPLOYMENT_BUCKET}/${SCRIPT_KEY}"
+echo "Script uploaded: s3://${DEPLOYMENT_BUCKET}/${SCRIPT_KEY}"
 echo ""
 
 # Get current job config
@@ -51,7 +51,7 @@ CURRENT_CONFIG=$(aws glue get-job \
   --output json)
 
 ROLE=$(echo "$CURRENT_CONFIG" | python -c "import sys, json; print(json.load(sys.stdin)['Job']['Role'])")
-echo "✓ Using role: $ROLE"
+echo "Using role: $ROLE"
 echo ""
 
 # Update job
@@ -97,7 +97,7 @@ aws glue update-job \
   --job-update file:///tmp/glue-job-update.json \
   --region $REGION
 
-echo "✓ Job configuration updated"
+echo "Job configuration updated"
 echo ""
 
 # Verify
@@ -109,39 +109,39 @@ aws glue get-job \
   --output table
 
 echo ""
-echo -e "${GREEN}✓ Production Glue Job Deployed Successfully!${NC}"
+echo -e "${GREEN}Production Glue Job Deployed Successfully!${NC}"
 echo ""
 
 echo "Configuration:"
-echo "  Mode: BATCH (glueetl)"
-echo "  Max Concurrent Runs: 30"
-echo "  Workers per Job: 20"
-echo "  Worker Type: G.2X (16GB RAM, 2 DPU)"
-echo "  Glue Version: 4.0"
-echo "  Timeout: 120 minutes"
-echo "  Auto-scaling: Enabled"
+echo " Mode: BATCH (glueetl)"
+echo " Max Concurrent Runs: 30"
+echo " Workers per Job: 20"
+echo " Worker Type: G.2X (16GB RAM, 2 DPU)"
+echo " Glue Version: 4.0"
+echo " Timeout: 120 minutes"
+echo " Auto-scaling: Enabled"
 echo ""
 
 echo "Expected Performance:"
-echo "  Files per manifest: 100"
-echo "  Processing time per job: 3-5 minutes"
-echo "  Capacity: 30 jobs × 100 files = 3,000 files in parallel"
-echo "  Daily throughput: ~338,000 files in 4-8 hours"
+echo " Files per manifest: 100"
+echo " Processing time per job: 3-5 minutes"
+echo " Capacity: 30 jobs × 100 files = 3,000 files in parallel"
+echo " Daily throughput: ~338,000 files in 4-8 hours"
 echo ""
 
 echo "Cost Estimate:"
-echo "  Per hour: 30 jobs × 20 workers × 2 DPU × \$0.44 = \$528/hour"
-echo "  Per day (8 hours): ~\$4,224/day"
-echo "  Per month: ~\$126,720/month"
+echo " Per hour: 30 jobs × 20 workers × 2 DPU × \$0.44 = \$528/hour"
+echo " Per day (8 hours): ~\$4,224/day"
+echo " Per month: ~\$126,720/month"
 echo ""
 echo -e "${YELLOW}Note: Cost will be lower with actual usage patterns.${NC}"
 echo -e "${YELLOW}Recommend EMR migration for 70% cost savings!${NC}"
 echo ""
 
 echo "Next steps:"
-echo "  1. Test with sample data: cd ../../dev/scripts && ./test-end-to-end.sh"
-echo "  2. Monitor production: ./monitor-pipeline.sh"
-echo "  3. Review costs: aws ce get-cost-and-usage --time-period ..."
+echo " 1. Test with sample data: cd ../../dev/scripts && ./test-end-to-end.sh"
+echo " 2. Monitor production: ./monitor-pipeline.sh"
+echo " 3. Review costs: aws ce get-cost-and-usage --time-period ..."
 echo ""
 
 # Cleanup

@@ -10,7 +10,7 @@ STATE_MACHINE="ndjson-parquet-processor-${ENV}"
 BATCH_UPDATER_FN="ndjson-parquet-batch-status-updater-${ENV}"
 
 echo "============================================"
-echo "  Batch Status Updater Diagnostic"
+echo " Batch Status Updater Diagnostic"
 echo "============================================"
 echo ""
 
@@ -86,9 +86,9 @@ LATEST_STREAM=$(aws logs describe-log-streams --log-group-name "$LOG_GROUP" --re
 if [ "$LATEST_STREAM" = "None" ] || [[ "$LATEST_STREAM" == *"ResourceNotFoundException"* ]]; then
   echo "WARNING: No log streams found - Lambda may never have been invoked!"
   echo "This means BatchUpdateCompleted step either:"
-  echo "  a) Does not exist in the deployed state machine"
-  echo "  b) Is never reached (execution errors before it)"
-  echo "  c) Has wrong FunctionName configured"
+  echo " a) Does not exist in the deployed state machine"
+  echo " b) Is never reached (execution errors before it)"
+  echo " c) Has wrong FunctionName configured"
 else
   echo "Latest log stream: $LATEST_STREAM"
   echo ""
@@ -98,5 +98,5 @@ fi
 
 echo ""
 echo "============================================"
-echo "  Diagnostic Complete"
+echo " Diagnostic Complete"
 echo "============================================"

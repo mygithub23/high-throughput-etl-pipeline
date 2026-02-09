@@ -7,20 +7,20 @@
 # past "manifested" status, even though Glue successfully processed them.
 #
 # This script:
-#   1. Scans for all records with status beginning with "manifested"
-#   2. Updates each record's status to "completed" (preserving shard suffix)
-#   3. Logs all changes for audit trail
+# 1. Scans for all records with status beginning with "manifested"
+# 2. Updates each record's status to "completed" (preserving shard suffix)
+# 3. Logs all changes for audit trail
 #
 # Prerequisites:
-#   - AWS CLI configured with appropriate credentials
-#   - jq installed
+# - AWS CLI configured with appropriate credentials
+# - jq installed
 #
 # Usage:
-#   # Dry run (default) - shows what would be changed
-#   ./remediate-manifested-files.sh
+# # Dry run (default) - shows what would be changed
+# ./remediate-manifested-files.sh
 #
-#   # Execute changes
-#   ./remediate-manifested-files.sh --execute
+# # Execute changes
+# ./remediate-manifested-files.sh --execute
 ###############################################################################
 
 set -euo pipefail
@@ -106,7 +106,7 @@ scan_and_update() {
                     UPDATED=$((UPDATED + 1))
                 else
                     ERRORS=$((ERRORS + 1))
-                    echo "  ERROR updating ${file_key}" | tee -a "${LOG_FILE}"
+                    echo " ERROR updating ${file_key}" | tee -a "${LOG_FILE}"
                 fi
             fi
         done <<< "${items}"

@@ -32,7 +32,7 @@ FILES_LAST_HOUR=$(aws s3 ls s3://ndjson-input-sqs-${AWS_ACCOUNT_ID}/ --recursive
 echo "Files uploaded (last hour): $FILES_LAST_HOUR"
 
 if [ $FILES_LAST_HOUR -gt 7000 ]; then
-    echo -e "${RED}⚠️  PEAK LOAD! Above 7K/hour${NC}"
+    echo -e "${RED}PEAK LOAD! Above 7K/hour${NC}"
 elif [ $FILES_LAST_HOUR -gt 3000 ]; then
     echo -e "${YELLOW}High load${NC}"
 else
@@ -51,7 +51,7 @@ echo "Manifests created today: $MANIFESTS_TODAY"
 echo "Expected for 338K files: ~3,380"
 
 if [ $MANIFESTS_TODAY -gt 5000 ]; then
-    echo -e "${YELLOW}⚠️  High manifest count (check batch size)${NC}"
+    echo -e "${YELLOW}High manifest count (check batch size)${NC}"
 fi
 echo ""
 
@@ -112,7 +112,7 @@ RECENT_FAILURES=$(aws glue get-job-runs \
   --output json | python3 -c "import sys, json; print(len(json.load(sys.stdin)))")
 
 if [ "$RECENT_FAILURES" -gt "0" ]; then
-    echo -e "${RED}⚠️  $RECENT_FAILURES failed jobs in last 10 runs${NC}"
+    echo -e "${RED}$RECENT_FAILURES failed jobs in last 10 runs${NC}"
     echo "Run './check-glue-errors.sh' for details"
 fi
 echo ""
@@ -192,7 +192,7 @@ MESSAGES_WAITING=$(aws sqs get-queue-attributes \
   --output text)
 
 if [ "$MESSAGES_WAITING" -gt "1000" ]; then
-    echo -e "${RED}⚠️  High queue backlog!${NC}"
+    echo -e "${RED}High queue backlog!${NC}"
 fi
 echo ""
 
@@ -242,20 +242,20 @@ HEALTH="HEALTHY"
 # Check for issues
 if [ "$RECENT_FAILURES" -gt "2" ]; then
     HEALTH="DEGRADED"
-    echo -e "${RED}✗ Multiple Glue job failures${NC}"
+    echo -e "${RED}Multiple Glue job failures${NC}"
 fi
 
 if [ "$MESSAGES_WAITING" -gt "1000" ]; then
     HEALTH="DEGRADED"
-    echo -e "${RED}✗ High SQS backlog${NC}"
+    echo -e "${RED}High SQS backlog${NC}"
 fi
 
 if [ "$FILES_LAST_HOUR" -gt "7000" ]; then
-    echo -e "${YELLOW}⚠️  Peak load - monitor closely${NC}"
+    echo -e "${YELLOW}Peak load - monitor closely${NC}"
 fi
 
 if [ "$HEALTH" = "HEALTHY" ]; then
-    echo -e "${GREEN}✓ All systems healthy${NC}"
+    echo -e "${GREEN}All systems healthy${NC}"
 fi
 
 echo ""
@@ -263,8 +263,8 @@ echo "=========================================="
 echo ""
 
 echo "Monitoring commands:"
-echo "  Real-time: watch -n 30 './monitor-pipeline.sh'"
-echo "  Glue logs: ./check-glue-errors.sh"
-echo "  Lambda logs: ../../dev/scripts/check-lambda-logs.sh"
-echo "  Full diagnostic: ../../dev/scripts/diagnose-pipeline.sh"
+echo " Real-time: watch -n 30 './monitor-pipeline.sh'"
+echo " Glue logs: ./check-glue-errors.sh"
+echo " Lambda logs: ../../dev/scripts/check-lambda-logs.sh"
+echo " Full diagnostic: ../../dev/scripts/diagnose-pipeline.sh"
 echo ""

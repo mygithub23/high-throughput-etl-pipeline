@@ -19,10 +19,10 @@ OUTPUT_DIR="./test-data-dev"
 DATE_PREFIX=$(date +%Y-%m-%d)
 
 echo "Configuration:"
-echo "  Files: $NUM_FILES"
-echo "  Records per file: $RECORDS_PER_FILE"
-echo "  File size: ~10-20 KB each"
-echo "  Output: $OUTPUT_DIR"
+echo " Files: $NUM_FILES"
+echo " Records per file: $RECORDS_PER_FILE"
+echo " File size: ~10-20 KB each"
+echo " Output: $OUTPUT_DIR"
 echo ""
 
 # Create output directory
@@ -42,21 +42,21 @@ EOF
 
     FILE_SIZE=$(wc -c < "$FILE")
     FILE_SIZE_KB=$((FILE_SIZE / 1024))
-    echo "  ✓ Created: $FILE ($FILE_SIZE_KB KB, $RECORDS_PER_FILE records)"
+    echo " Created: $FILE ($FILE_SIZE_KB KB, $RECORDS_PER_FILE records)"
 done
 
 echo ""
-echo -e "${GREEN}✓ Generated $NUM_FILES test files${NC}"
+echo -e "${GREEN}Generated $NUM_FILES test files${NC}"
 echo ""
 
 # Summary
 TOTAL_SIZE=$(du -sh "$OUTPUT_DIR" | cut -f1)
 echo "Summary:"
-echo "  Total size: $TOTAL_SIZE"
-echo "  Location: $OUTPUT_DIR"
+echo " Total size: $TOTAL_SIZE"
+echo " Location: $OUTPUT_DIR"
 echo ""
 
 echo "Next steps:"
-echo "  1. Review files: ls -lh $OUTPUT_DIR"
-echo "  2. Upload to S3: ./upload-test-data.sh"
+echo " 1. Review files: ls -lh $OUTPUT_DIR"
+echo " 2. Upload to S3: ./upload-test-data.sh"
 echo ""
