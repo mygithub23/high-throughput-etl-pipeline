@@ -23,15 +23,15 @@ with Diagram(
     direction="TB",
     outformat="png",
     graph_attr={
-        "fontsize": "28",
+        "fontsize": "36",
         "bgcolor": "white",
         "pad": "1.2",
         "nodesep": "1.0",
         "ranksep": "1.4",
         "dpi": "150",
     },
-    node_attr={"fontsize": "12"},
-    edge_attr={"fontsize": "10"},
+    node_attr={"fontsize": "16"},
+    edge_attr={"fontsize": "14"},
 ):
 
     # ── Ingestion ────────────────────────────────────────────────────────

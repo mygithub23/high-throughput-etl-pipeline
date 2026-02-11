@@ -204,63 +204,6 @@ module "lambda" {
 }
 
 ###############################################################################
-# Control Plane Lambda Module - REMOVED
-###############################################################################
-
-# Control plane module has been removed - functionality covered by:
-# - State Management Lambda (automated maintenance and queries)
-# - CloudWatch Dashboard (monitoring and metrics)
-# - CloudWatch Alarms (alerting)
-# - Direct DynamoDB queries (ad-hoc investigation)
-
-###############################################################################
-# State Management Lambda Module - DISABLED (to be enabled later)
-###############################################################################
-
-# This module provides admin/ops utilities for the pipeline:
-# - Query file states and statistics
-# - Find orphaned/stuck files
-# - Reset stuck files
-# - Validate consistency
-#
-# The core ETL pipeline works WITHOUT this module.
-# To re-enable: uncomment the module block below and the output in outputs.tf
-
-# module "state_management" {
-#   source = "./modules/state_management"
-#
-#   environment = var.environment
-#
-#   # Configuration
-#   memory_size = 512
-#   timeout     = 300
-#
-#   # Environment variables
-#   file_tracking_table_name = module.dynamodb.file_tracking_table_name
-#   metrics_table_name       = module.dynamodb.metrics_table_name
-#   input_bucket_name        = module.s3.input_bucket_name
-#   manifest_bucket_name     = module.s3.manifest_bucket_name
-#   output_bucket_name       = module.s3.output_bucket_name
-#   quarantine_bucket_name   = module.s3.quarantine_bucket_name
-#
-#   # IAM role
-#   role_arn = module.iam.state_management_role_arn
-#
-#   # Scripts bucket for code
-#   scripts_bucket_name = module.s3.scripts_bucket_name
-#
-#   # Log retention
-#   log_retention_days = var.log_retention_days
-#
-#   # Enable schedules in production only (internal health checks)
-#   enable_schedules = var.environment == "prod"
-#
-#   tags = local.common_tags
-#
-#   depends_on = [module.iam]
-# }
-
-###############################################################################
 # Glue Job Module
 ###############################################################################
 
@@ -337,8 +280,8 @@ module "monitoring" {
   sqs_queue_name = "ndjson-parquet-file-events-${var.environment}"
   sqs_dlq_name   = "ndjson-parquet-dlq-${var.environment}"
 
-  # Create alarms only in production
-  create_alarms = var.environment == "prod"
+  # Create alarms in production by default, or when explicitly overridden
+  create_alarms = var.create_alarms != null ? var.create_alarms : var.environment == "prod"
 
   # Create dashboard
   create_dashboard = var.create_dashboard

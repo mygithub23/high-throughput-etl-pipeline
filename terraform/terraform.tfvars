@@ -59,6 +59,7 @@ glue_max_retries         = 1 # Allow 1 retry on Glue job failure
 alert_email        = "magzine323@gmail.com"
 log_retention_days = 3
 create_dashboard   = true
+create_alarms      = true
 
 # SQS Configuration
 sqs_message_retention_seconds = 345600

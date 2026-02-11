@@ -280,6 +280,12 @@ variable "create_dashboard" {
   default     = true
 }
 
+variable "create_alarms" {
+  description = "Create CloudWatch alarms (defaults to true only in prod, set true to override in dev)"
+  type        = bool
+  default     = null
+}
+
 ###############################################################################
 # SQS Configuration
 ###############################################################################

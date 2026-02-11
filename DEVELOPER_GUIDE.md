@@ -436,9 +436,9 @@ high-throughput-etl-pipeline-RELEASE/
 |   |   |   |-- diagnose-pipeline.sh
 |   |   |   |-- check-dynamodb-files.sh
 |   |   |   |-- cleanup-pipeline.sh
-|   |   |   |-- README-LOCK-RECOVERY.md
-|   |   |   |-- README-TIMEZONE.md
 |   |   |   |-- ...
+|   |   |-- README-LOCK-RECOVERY.md
+|   |   |-- README-TIMEZONE.md
 |   |-- prod/
 |   |   |-- lambda/                 <-- production Lambda code
 |   |   |-- glue/                   <-- production Glue code
