@@ -38,3 +38,77 @@ for obj in data.get('Contents', []):
 
 # Manifests
 --bucket ndjson-manifest-sqs-804450520964-dev --prefix "manifests/2026-02-06"
+
+# Create Athena database and table for s3 logs
+-- Create a database
+CREATE DATABASE IF NOT EXISTS etl_pipeline;
+
+-- Lambda reports table
+CREATE EXTERNAL TABLE etl_pipeline.lambda_reports (
+  execution_info struct<
+    request_id: string,
+    function_name: string,
+    function_version: string,
+    memory_limit_mb: string,
+    log_group: string,
+    log_stream: string
+  >,
+  execution_metrics struct<
+    start_time: string,
+    end_time: string,
+    duration_seconds: double,
+    remaining_time_ms: int
+  >,
+  processing_summary struct<
+    files_processed: int,
+    files_quarantined: int,
+    manifests_created: int,
+    errors_count: int,
+    status: string
+  >,
+  manifests array<string>,
+  errors array<string>,
+  configuration struct<
+    max_files_per_manifest: int,
+    expected_file_size_mb: double,
+    size_tolerance_percent: double,
+    min_files_for_partial_batch: int
+  >,
+  report_metadata struct<
+    generated_at: string,
+    report_version: string,
+    environment: string
+  >
+)
+ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
+LOCATION 's3://YOUR-MANIFEST-BUCKET/logs/lambda/'
+TBLPROPERTIES ('has_encrypted_data'='false');
+
+-- Glue reports table
+CREATE EXTERNAL TABLE etl_pipeline.glue_reports (
+  job_info struct<
+    job_name: string,
+    job_run_id: string,
+    start_time: string,
+    end_time: string,
+    duration_seconds: double
+  >,
+  processing_summary struct<
+    manifest_processed: string,
+    batches_processed: int,
+    records_processed: int,
+    parquet_files_created: int,
+    errors_count: int,
+    status: string
+  >,
+  parquet_files array<string>,
+  error_message string,
+  report_metadata struct<
+    generated_at: string,
+    report_version: string,
+    environment: string
+  >
+)
+ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
+LOCATION 's3://YOUR-MANIFEST-BUCKET/logs/glue/'
+TBLPROPERTIES ('has_encrypted_data'='false');

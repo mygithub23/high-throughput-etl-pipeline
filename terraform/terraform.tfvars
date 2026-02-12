@@ -3,6 +3,7 @@
 environment = "dev"
 aws_region  = "us-east-1"
 
+
 # S3 Configuration
 create_input_bucket             = true
 existing_input_bucket_name      = ""
